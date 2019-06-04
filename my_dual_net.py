@@ -145,7 +145,6 @@ class DualShot(nn.Module):
         :param cfg: 
         :return: 
         """
-        # todo:Compute priorbox coordinates in center-offset form for each source feature map.
         priorbox = my_priorbox.PriorBox(cfg)
         priorbox = Variable(priorbox.forward(), volatile=True)
         return priorbox

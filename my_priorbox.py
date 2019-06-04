@@ -18,7 +18,7 @@ class PriorBox(object):
         """
         super(PriorBox, self).__init__()
         self.image_size = cfg['min_dim']  # 如[300, 300]尺寸
-        self.variance = cfg['variance'] or [0.1]  #
+        self.variance = cfg['variance'] or [0.1]  # 如[0.1, 0.1, 0.2, 0.2]形式，用来放大梯度
         self.feature_maps = cfg['feature_maps']  # [[H,W],[H,W],...]的形式
         self.min_sizes = cfg['min_sizes']  # len(min_sizes) == len(max_sizes)
         self.max_sizes = cfg['max_sizes']  # len(min_sizes) == len(max_sizes)
