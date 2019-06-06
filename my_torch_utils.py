@@ -195,32 +195,56 @@ def decode(deltas, default_boxes, variances):
     return torch.stack((y1, x1, y2, x2), dim=1)
 
 
-def target(threshold, gts, priors, variances, labels, loc_t, conf_t, idx):
+def target(threshold, gts, priors, variances, labels):
     """
     样本采样、匹配过程及调用encode函数做target计算
     Match each prior box with the ground truth box of the highest IOU
     overlap, encode the bounding boxes, then return the matched indices
     corresponding to both confidence and location preds.
-    :param threshold: 做匹配的IOU阈值
+    :param threshold: 标量-做匹配的IOU阈值
     :param gts: Ground truth boxes, Shape:[num_gts, 4]
     :param priors: default boxes from priorbox layers, Shape: [num_default_boxes,4]
     :param variances: 
     :param labels: All the class labels for the gts, Shape: [num_gts]
     :param loc_t: 
     :param conf_t: 
-    :param idx: (int) current batch index
-    
     :return: deltas: tensor [rois_num,(dy,dx,dz,dh,dw,dd)]
     :return: labels: tensor [rois_num,(y1,x1,z1,y2,x2,z2)]
     :return: metrics: dict 用于打印统计样本情况
-    # :return: rois: tensor [rois_num,(y1,x1,z1,y2,x2,z2)]
+    # :return: rois: tensor [rois_num]
     # :return: rois_indices: tensor [rois_num] roi在原始的mini-batch中的索引号;roiAlign时用到
     
     """
     # 度量
     metrics = {}
-    # todo: target采样过程
-    return batch_loc, batch_deltas, batch_labels, batch_rois_indices, metrics
+    # todo: target匹配过程（注：1个gt与N个prior匹配，一对多的关系，但是1个prior只对应1个gt）
+    iou_target = iou(gts, priors)
+    # 每个gt最佳的prior
+    best_prior_iou, best_prior_idx = iou_target.max(1, keepdim=True)  #  [1,num_gts]
+    # 每个prior最佳的gt
+    best_gt_iou, best_gt_idx = iou_target.max(0, keepdim=True)  # [1,num_priors]
+
+    # 降维
+    best_gt_idx.squeeze_(0)
+    best_gt_iou.squeeze_(0)
+    best_prior_idx.squeeze_(1)  # squeeze()选的dim=1？
+    best_prior_iou.squeeze_(1)  # squeeze()选的dim=1？
+
+    # 与每个gt最大iou的prior的iou值设置为2（注：避免某些gts的最大iou都小于threshold，二把match该的情况）
+    best_gt_iou.index_fill_(0, best_prior_idx, 2)  # [num_priors]
+    # 保证每个gt对应match的priors都是iou值最大
+    for j in range(best_prior_idx.size(0)):
+        best_gt_idx[best_prior_idx[j]] = j
+    # priors框对应match的gts框-坐标
+    matches = gts[best_gt_idx]  #  [num_priors, 4]
+    # priors框对应match的gts框-类别
+    cls = labels[best_gt_idx] + 1  #  [num_priors]
+    cls[best_gt_iou < threshold] = 0  # 负样本，其余的都是正样本
+    batch_labels = cls
+    # 计算回归目标
+    batch_deltas = encode(matches, priors, variances)
+
+    return batch_deltas, batch_labels, metrics
 
 
 def save_net(fname, net):
