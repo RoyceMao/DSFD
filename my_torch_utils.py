@@ -197,17 +197,12 @@ def decode(deltas, default_boxes, variances):
 
 def target(threshold, gts, priors, variances, labels):
     """
-    样本采样、匹配过程及调用encode函数做target计算
-    Match each prior box with the ground truth box of the highest IOU
-    overlap, encode the bounding boxes, then return the matched indices
-    corresponding to both confidence and location preds.
+    样本采样、匹配过程及调用encode函数做target计算（注：1个gt与N个prior匹配，一对多的关系，但是1个prior只对应1个gt）
     :param threshold: 标量-做匹配的IOU阈值
     :param gts: Ground truth boxes, Shape:[num_gts, 4]
     :param priors: default boxes from priorbox layers, Shape: [num_default_boxes,4]
     :param variances: 
     :param labels: All the class labels for the gts, Shape: [num_gts]
-    :param loc_t: 
-    :param conf_t: 
     :return: deltas: tensor [rois_num,(dy,dx,dz,dh,dw,dd)]
     :return: labels: tensor [rois_num,(y1,x1,z1,y2,x2,z2)]
     :return: metrics: dict 用于打印统计样本情况
@@ -215,9 +210,7 @@ def target(threshold, gts, priors, variances, labels):
     # :return: rois_indices: tensor [rois_num] roi在原始的mini-batch中的索引号;roiAlign时用到
     
     """
-    # 度量
     metrics = {}
-    # todo: target匹配过程（注：1个gt与N个prior匹配，一对多的关系，但是1个prior只对应1个gt）
     iou_target = iou(gts, priors)
     # 每个gt最佳的prior
     best_prior_iou, best_prior_idx = iou_target.max(1, keepdim=True)  #  [1,num_gts]
@@ -239,12 +232,32 @@ def target(threshold, gts, priors, variances, labels):
     matches = gts[best_gt_idx]  #  [num_priors, 4]
     # priors框对应match的gts框-类别
     cls = labels[best_gt_idx] + 1  #  [num_priors]
-    cls[best_gt_iou < threshold] = 0  # 负样本，其余的都是正样本
-    batch_labels = cls
-    # 计算回归目标
-    batch_deltas = encode(matches, priors, variances)
 
-    return batch_deltas, batch_labels, metrics
+    # 正、负样本及ignore样本区分
+    if len(threshold) > 1:
+        cls[best_gt_iou < threshold[1]] = -1  # 有忽略样本
+        cls[best_gt_iou < threshold[0]] = 0
+    else:
+        cls[best_gt_iou < threshold[0]] = 0  # 没有忽略样本
+
+    # 分类目标
+    batch_labels = cls
+    # 回归目标
+    batch_deltas = encode(matches, priors, variances)
+    # # 合并
+    # batch_target = np.concatenate([batch_deltas, batch_labels[:, np.newaxis]], -1)
+
+    return batch_labels, batch_deltas, metrics
+
+
+def log_sum_exp(x):
+    """
+    根据所有打平priorbox的预测confidence，计算log_sum_exp值
+    :param x: 打平了的priorbox的预测confidence
+    :return: 
+    """
+    x_max = x.data.max()
+    return torch.log(torch.sum(torch.exp(x - x_max), 1, keepdim=True)) + x_max
 
 
 def save_net(fname, net):

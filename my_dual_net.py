@@ -151,19 +151,18 @@ class DualShot(nn.Module):
 
     def forward(self, x):
         """
-
+        
         :param x: inputs
         :return: 
-        Depending on phase:
-        test:
-            Variable(tensor) of output class label predictions,
-            confidence score, and corresponding location predictions for
-            each object detected. Shape: [batch,topk,7]
-        train:
-            list of concat outputs from:
-                1: cls layers, Shape: [batch，num_priorbox，num_classes]
-                2: loc layers, Shape: [batch，num_priorbox，4]
-                3: roi layers, Shape: [2,num_priorbox*4]
+            test:
+                Variable(tensor) of output class label predictions,
+                confidence score, and corresponding location predictions for
+                each object detected. Shape: [batch,topk,5]
+            train:
+                list of concat outputs from:
+                    1: cls layers, Shape: [batch，num_priorbox，num_classes]
+                    2: loc layers, Shape: [batch，num_priorbox，4]
+                    3: roi layers, Shape: [2,num_priorbox*4]
         """
         # 需要的中间参数
         image_size = [x.shape[2], x.shape[3]]
@@ -215,11 +214,11 @@ class DualShot(nn.Module):
             self.cfg['feature_maps'] = fp_size  # 根据具体输入情况来修改cfg
             self.cfg['min_dim'] = image_size  #  根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(self.cfg)
-            output = [
+            output = (
                 face_loc.view(face_loc.size(0), -1, 4),
                 face_cls.view(face_cls.size(0), -1, self.num_classes),
                 self.priorbox
-            ]
+            )
         ## test
         else:
             self.cfg['feature_maps'] = fp_size  # 根据具体输入情况来修改cfg

@@ -45,11 +45,11 @@ class Detection(Function):
             conf_pred: (tensor) Shape: Conf preds from conf layers
                 Shape: [batch,num_priors,num_classes]
             prior_box: (tensor) Prior boxes and variances from priorbox layers
-                Shape: [1,num_priors,4]
+                Shape: [num_priors,4]
         """
         # batch_size与每个batch的prior_box数量
         num = loc_pred.size(0)  # batch size == 1
-        num_priors = prior_box.size(1)  # 当前batch的priorbox数量
+        num_priors = prior_box.size(0)  # 当前batch的priorbox数量
         # detect输出的维度
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
         conf_preds = conf_pred.view(num, num_priors, self.num_classes).transpose(2, 1)
