@@ -15,18 +15,13 @@ from ..layers.my_torch_utils import target, log_sum_exp
 
 
 class GeneralLoss(nn.Module):
-    def __init__(self, num_classes, overlap_thresh, priors_for_matching,
-                 bkg_label, neg_mining, neg_pos_ratio, alpha, encode_target):
+    def __init__(self, cfg):
         super(GeneralLoss, self).__init__()
-        self.num_classes = num_classes
-        self.threshold = overlap_thresh
-        self.background_label = bkg_label
-        self.deltas = encode_target
-        self.priors_for_matching = priors_for_matching
-        self.do_neg_mining = neg_mining
-        self.negpos_ratio = neg_pos_ratio
-        self.alpha = alpha
-        self.variance = cfg['variance']
+        self.num_classes = cfg.NUM_CLASSES
+        self.threshold = cfg.FACE.OVERLAP_THRESH
+        self.negpos_ratio = cfg.NEG_POS_RATIOS
+        self.alpha = cfg.ALPHA
+        self.variance = cfg.VARIANCE
 
     def loss_compute(self, predictions, targets):
         """
@@ -61,7 +56,8 @@ class GeneralLoss(nn.Module):
         cls_batch = Variable(cls_batch.cuda(), requires_grad=False)
 
         # Smooth L1 loss（只取正样本做回归）
-        pos_idx = (cls_batch > 0).nonzero()
+        pos = cls_batch > 0
+        pos_idx = pos.nonzero()
         predict_deltas = loc_preds[pos_idx].view(-1, 4)
         deltas = loc_batch[pos_idx].view(-1, 4)
         loss_loc = F.smooth_l1_loss(predict_deltas, deltas, size_average=False)  # size_average=False不取minibatch的loss平均，增大梯度
@@ -79,12 +75,12 @@ class GeneralLoss(nn.Module):
         loss_cls_sl = loss_cls_sl.view(batch, -1)  # [batch, num_priors]
         _, loss_idx = loss_cls_sl.sort(1, descending=True)  # 单张图片（不是minibatch）里的priorbox按模拟loss降序排序
         _, idx_rank = loss_idx.sort(1)
-        num_pos = pos_idx.long().sum(1, keepdim=True)
+        num_pos = pos.sum(1, keepdim=True)
         num_neg = torch.clamp(self.negpos_ratio * num_pos, max=pos_idx.size(1) - 1)
         neg = idx_rank < num_neg.expand_as(idx_rank)
 
         # Cross Entropy loss（所有正样本+挖掘的困难负样本做分类）
-        pos_idx = pos_idx.unsqueeze(2).expand_as(cls_preds)  # [batch, num_priors, num_classes]
+        pos_idx = pos.unsqueeze(2).expand_as(cls_preds)  # [batch, num_priors, num_classes]
         neg_idx = neg.unsqueeze(2).expand_as(cls_preds)  # [batch, num_priors, num_classes]
         predict_logits_mining = cls_preds[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)  # [batch*num_priors, num_classes]
         labels_mining = cls_batch[(pos_idx + neg).gt(0)]  # [batch*num_priors]
@@ -107,5 +103,3 @@ class GeneralLoss(nn.Module):
         loss_loc, loss_cls, loss_total = self.loss_compute(predictions, targets)
 
         return loss_total
-
-

@@ -233,22 +233,22 @@ class DualShot(nn.Module):
         return output
 
 
-def build_ssd(phase, size=640, num_classes=2):
-    """
-    外部调用的接口函数
-    :param phase: train or test
-    :param size: input size
-    :param num_classes: cls数量
-    :return: 
-    """
-    if phase != "test" and phase != "train":
-        print("ERROR: Phase: " + phase + " not recognized")
-        return
-    if size!=640:
-        print("ERROR: You specified size " + repr(size) + ". However, " +
-              "currently only SSD640 (size=640) is supported!")
-
-    return DualShot(phase, cfg, num_classes)
+# def build_ssd(phase, size=640, num_classes=2):
+#     """
+#     外部调用的接口函数
+#     :param phase: train or test
+#     :param size: input size
+#     :param num_classes: cls数量
+#     :return:
+#     """
+#     if phase != "test" and phase != "train":
+#         print("ERROR: Phase: " + phase + " not recognized")
+#         return
+#     if size!=640:
+#         print("ERROR: You specified size " + repr(size) + ". However, " +
+#               "currently only SSD640 (size=640) is supported!")
+#
+#     return DualShot(phase, cfg, num_classes)
 
 
 def main():
