@@ -47,7 +47,6 @@ def train(args):
                                  shuffle=False,
                                  collate_fn=face_collate,
                                  pin_memory=True)
-    min_loss = np.inf  # 用来每个epoch走完之后，val_loss的比较以保存最佳model
     # per_epoch_size = len(train_dataset) // cfg.BATCH_SIZE  # 计算下每个epoch的steps
 
     # 初始化网络
@@ -191,7 +190,10 @@ def metric_print(metrics_list):
 
 
 if __name__ == '__main__':
+    # python train.py './trained_weights/val_best_dsfd.pth'
     parse = argparse.ArgumentParser()
     parse.add_argument("--resume", type=str, default=None, help="weights_path")
-    argments = parse.parse_args(sys.argv[1:])
+    argments = parse.parse_args(sys.argv[1:])  # 新增的resume参数，指定net需要加载的权重参数
+    # 用来每个epoch走完之后，val_loss的比较以保存最佳model
+    min_loss = np.inf
     train(argments)
