@@ -21,9 +21,8 @@ from layers.my_loss import GeneralLoss
 from models.my_dual_net import DualShot
 from utils.my_data_loader import WIDERFace, face_collate
 
-
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+torch.cuda.set_device(1)
 
 def train(args):
     """
@@ -48,8 +47,8 @@ def train(args):
                                  shuffle=False,
                                  collate_fn=face_collate,
                                  pin_memory=True)
-    min_loss = np.inf
-    per_epoch_size = len(train_dataset) // cfg.BATCH_SIZE  # 计算下每个epoch的steps
+    min_loss = np.inf  # 用来每个epoch走完之后，val_loss的比较以保存最佳model
+    # per_epoch_size = len(train_dataset) // cfg.BATCH_SIZE  # 计算下每个epoch的steps
 
     # 初始化网络
     print("====初始化网络=====")
@@ -106,10 +105,10 @@ def train(args):
             # 每训练10个batches后打印日志
             if iteration % 10 == 0:
                 # 计算平均每个batch的loss
-                total_loss = losses_total / (iteration + 1)
+                mean_loss = losses_total / (iteration + 1)
                 print('Timer: %.4f' % (time.time() - start_time))
                 print('Epoch:' + repr(epoch) + ' || iter:' +
-                      repr(iteration) + ' || Loss:%.4f' % (total_loss))
+                      repr(iteration) + ' || Loss:%.4f' % (mean_loss))
                 print('->> conf loss:{:.4f} || loc loss:{:.4f}'.format(
                     loss_cls.data[0], loss_loc.data[0]))
                 print('->>lr:{}'.format(optimizer.param_groups[0]['lr']))
@@ -121,12 +120,12 @@ def train(args):
             torch.save(net.state_dict(), save_path.format(epoch))
 
         # 重要！！！每个epoch评估测试一次
-        val(epoch, net, dsfd_net, criterion, val_loader)
+        val(epoch, net, criterion, val_loader)
 
     print('[INFO] Finished Training')
 
 
-def val(epoch, net, dsfd_net, criterion, val_loader):
+def val(epoch, net, criterion, val_loader):
     """
     
     :param epoch: 
@@ -136,7 +135,37 @@ def val(epoch, net, dsfd_net, criterion, val_loader):
     :return: 
     """
     net.eval()
+    step = 0
+    losses_total_val = 0
+    start_time = time.time()
+    for iteration, data in enumerate(val_loader):
+        # images与targets放GPU上
+        images, targets = data
+        images = Variable(images.cuda())
+        targets = [Variable(ann.cuda(), volatile=True)
+                   for ann in targets]
+        # 模型前向传播进行预测，并计算val_loss（注：这里的val_loss并不做反向传播，也不需要optimizer的更新）
+        out = net(images)
+        loss_loc_val, loss_cls_val, loss_total_val = criterion(out, targets)
+        losses_total_val += loss_total_val.data[0]
+        step += 1
+    # 每次评估只打印一次日志
+    mean_loss_val = losses_total_val / step
+    print('Timer: %.4f' % (time.time() - start_time))
+    print('Test Epoch:' + repr(epoch) + ' || Loss:%.4f' % (mean_loss_val))
+    # 每个epoch根据目前的val_loss与以往的val_loss相比，有提升的话才保存模型
+    global min_loss  # 设为全局变量
+    if mean_loss_val < min_loss:
+        print('Saving best state,epoch', epoch)
+        torch.save(net.state_dict(), os.path.join(
+            cfg.MODEL_DIR, 'val_best_dsfd.pth'))
+        min_loss = mean_loss_val
 
+    # states = {
+    #     'epoch': epoch,
+    #     'weight': net.state_dict(),
+    # }
+    # torch.save(states, os.path.join(cfg.MODEL_DIR, 'val_best_dsfd_checkpoint.pth'))
 
 
 def metric_print(metrics_list):
