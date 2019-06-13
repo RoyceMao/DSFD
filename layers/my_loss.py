@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch.autograd import Variable
-from ..config import current_cfg as cfg
+from ..config import cur_config as cfg
 from ..layers.my_torch_utils import target, log_sum_exp
 
 
@@ -18,7 +18,7 @@ class GeneralLoss(nn.Module):
     def __init__(self, cfg):
         super(GeneralLoss, self).__init__()
         self.num_classes = cfg.NUM_CLASSES
-        self.threshold = cfg.FACE.OVERLAP_THRESH
+        self.threshold = cfg.FACE_OVERLAP_THRESH
         self.negpos_ratio = cfg.NEG_POS_RATIOS
         self.alpha = cfg.ALPHA
         self.variance = cfg.VARIANCE

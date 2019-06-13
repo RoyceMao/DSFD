@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 # todo
-from ..config import current_cfg as cfg
+from .config import cur_config as cfg
 import my_priorbox
 import my_resnet
 

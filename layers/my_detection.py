@@ -8,7 +8,7 @@
 import torch
 from torch.autograd import Function
 # todo
-from ..config import current_cfg as cfg
+from ..config import cur_config as cfg
 from .my_torch_utils import decode, nms
 
 

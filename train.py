@@ -13,13 +13,13 @@ import torch
 import argparse
 import torch.optim as optim
 from torch.autograd import Variable
-import torch.utils.data
+from torch.utils.data import DataLoader
 import numpy as np
 
-from config import current_cfg as cfg
+from config import cur_config as cfg
 from layers.my_loss import GeneralLoss
 from models.my_dual_net import DualShot
-from data.widerface import WIDERDetection, detection_collate
+from utils.my_data_loader import WIDERFace, face_collate
 
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
@@ -34,20 +34,19 @@ def train(args):
     # 参数
     phase = 'train'
     start_epoch = 0
-
     # 加载数据
-    train_dataset = WIDERDetection(cfg.FACE_TRAIN_FILE, mode='train')
-    val_dataset = WIDERDetection(cfg.FACE_VAL_FILE, mode='val')
+    train_dataset = WIDERFace(cfg.FACE_TRAIN_FILE, mode='train')
+    val_dataset = WIDERFace(cfg.FACE_VAL_FILE, mode='val')
 
-    train_loader = data.DataLoader(train_dataset, cfg.BATCH_SIZE,
+    train_loader = DataLoader(train_dataset, cfg.BATCH_SIZE,
                                    num_workers=cfg.NUM_WORKERS,
                                    shuffle=True,
-                                   collate_fn=detection_collate,
+                                   collate_fn=face_collate,
                                    pin_memory=True)
-    val_loader = data.DataLoader(val_dataset, cfg.BATCH_SIZE // 2,
+    val_loader = DataLoader(val_dataset, cfg.BATCH_SIZE // 2,
                                  num_workers=cfg.NUM_WORKERS,
                                  shuffle=False,
-                                 collate_fn=detection_collate,
+                                 collate_fn=face_collate,
                                  pin_memory=True)
     min_loss = np.inf
     per_epoch_size = len(train_dataset) // cfg.BATCH_SIZE  # 计算下每个epoch的steps
@@ -69,7 +68,6 @@ def train(args):
         print('[INFO] Load model from {}...'.format(args.resume))
         # torch_utils.load_net(args.resume, net)
         start_epoch = net.load_weights(args.resume)
-        iteration = start_epoch * per_epoch_size
     else:
         print('[INFO] No Pretraining weights...')
 
@@ -122,7 +120,23 @@ def train(args):
             # torch_utils.save_net(save_path.format(epoch), net)
             torch.save(net.state_dict(), save_path.format(epoch))
 
+        # 重要！！！每个epoch评估测试一次
+        val(epoch, net, dsfd_net, criterion, val_loader)
+
     print('[INFO] Finished Training')
+
+
+def val(epoch, net, dsfd_net, criterion, val_loader):
+    """
+    
+    :param epoch: 
+    :param net: 
+    :param dsfd_net: 
+    :param criterion: 
+    :return: 
+    """
+    net.eval()
+
 
 
 def metric_print(metrics_list):
