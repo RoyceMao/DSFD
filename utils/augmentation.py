@@ -10,7 +10,7 @@ import numpy as np
 from PIL import Image, ImageEnhance
 import math
 import six
-from .config import cur_config as cfg
+from config import cur_config as cfg
 import random
 
 
@@ -184,9 +184,9 @@ def transform_labels(bbox_labels, sample_bbox):
 
 def expand_image(img, bbox_labels, img_width, img_height):
     prob = np.random.uniform(0, 1)
-    if prob < cfg.expand_prob:
-        if cfg.expand_max_ratio - 1 >= 0.01:
-            expand_ratio = np.random.uniform(1, cfg.expand_max_ratio)
+    if prob < cfg.EXPAND_PROB:
+        if cfg.EXPAND_MAX_RATIO - 1 >= 0.01:
+            expand_ratio = np.random.uniform(1, cfg.EXPAND_MAX_RATIO)
             height = int(img_height * expand_ratio)
             width = int(img_width * expand_ratio)
             h_off = math.floor(np.random.uniform(0, height - img_height))
@@ -195,7 +195,7 @@ def expand_image(img, bbox_labels, img_width, img_height):
                                (width - w_off) / img_width,
                                (height - h_off) / img_height)
             expand_img = np.ones((height, width, 3))
-            expand_img = np.uint8(expand_img * np.squeeze(cfg.img_mean))
+            expand_img = np.uint8(expand_img * np.squeeze(cfg.IMG_MEAN))
             expand_img = Image.fromarray(expand_img)
             expand_img.paste(img, (int(w_off), int(h_off)))
             bbox_labels = transform_labels(bbox_labels, expand_bbox)
@@ -691,11 +691,11 @@ def anchor_crop_image_sampling(img,
             current_image = image_pad[
                 start_top:end_bottom, start_left:end_right, :].copy()
             image_height, image_width, _ = current_image.shape
-            if cfg.filter_min_face:
+            if cfg.FILTER_MIN_FACE:
                 bbox_w = current_boxes[:, 2] - current_boxes[:, 0]
                 bbox_h = current_boxes[:, 3] - current_boxes[:, 1]
                 bbox_area = bbox_w * bbox_h
-                mask = bbox_area > (cfg.min_face_size * cfg.min_face_size)
+                mask = bbox_area > (cfg.MIN_FACE_SIZE * cfg.MIN_FACE_SIZE)
                 current_boxes = current_boxes[mask]
                 current_labels = current_labels[mask]
                 for i in range(len(current_boxes)):
@@ -719,11 +719,11 @@ def anchor_crop_image_sampling(img,
             3], choice_box[0]:choice_box[2], :].copy()
         image_height, image_width, _ = current_image.shape
 
-        if cfg.filter_min_face:
+        if cfg.FILTER_MIN_FACE:
             bbox_w = current_boxes[:, 2] - current_boxes[:, 0]
             bbox_h = current_boxes[:, 3] - current_boxes[:, 1]
             bbox_area = bbox_w * bbox_h
-            mask = bbox_area > (cfg.min_face_size * cfg.min_face_size)
+            mask = bbox_area > (cfg.MIN_FACE_SIZE * cfg.MIN_FACE_SIZE)
             current_boxes = current_boxes[mask]
             current_labels = current_labels[mask]
             for i in range(len(current_boxes)):
@@ -744,11 +744,11 @@ def anchor_crop_image_sampling(img,
         return current_image, sampled_labels
     else:
         image_height, image_width, _ = image.shape
-        if cfg.filter_min_face:
+        if cfg.FILTER_MIN_FACE:
             bbox_w = boxes[:, 2] - boxes[:, 0]
             bbox_h = boxes[:, 3] - boxes[:, 1]
             bbox_area = bbox_w * bbox_h
-            mask = bbox_area > (cfg.min_face_size * cfg.min_face_size)
+            mask = bbox_area > (cfg.MIN_FACE_SIZE * cfg.MIN_FACE_SIZE)
             boxes = boxes[mask]
             labels = labels[mask]
             for i in range(len(boxes)):
@@ -773,15 +773,15 @@ def data_aug(img, bbox_labels, mode, image_path):
     img_width, img_height = img.size
     sampled_labels = bbox_labels
     if mode == 'train':
-        if cfg.apply_distort:
+        if cfg.APPLY_DISTORT:
             img = distort_image(img)
-        if cfg.apply_expand:
+        if cfg.APPLY_EXPAND:
             img, bbox_labels, img_width, img_height = expand_image(
                 img, bbox_labels, img_width, img_height)
 
         batch_sampler = []
         prob = np.random.uniform(0., 1.)
-        if prob > cfg.data_anchor_sampling_prob and cfg.anchor_sampling:
+        if prob > cfg.DATA_ANCHOR_SAMPLING_PROB and cfg.ANCHOR_SAMPLING:
             scale_array = np.array([16, 32, 64, 128, 256, 512])
             '''
             batch_sampler.append(
@@ -821,7 +821,7 @@ def data_aug(img, bbox_labels, mode, image_path):
                 idx = int(np.random.uniform(0, len(sampled_bbox)))
                 img, sampled_labels = crop_image(
                     img, bbox_labels, sampled_bbox[idx], img_width, img_height,
-                    cfg.resize_width, cfg.resize_height, cfg.min_face_size)
+                    cfg.RESIZE_WIDTH, cfg.RESIZE_HEIGHT, cfg.MIN_FACE_SIZE)
 
             img = Image.fromarray(img)
 
@@ -831,7 +831,7 @@ def data_aug(img, bbox_labels, mode, image_path):
     ]
     interp_indx = np.random.randint(0, 5)
 
-    img = img.resize((cfg.resize_width, cfg.resize_height),
+    img = img.resize((cfg.RESIZE_WIDTH, cfg.RESIZE_HEIGHT),
                      resample=interp_mode[interp_indx])
 
     img = np.array(img)
@@ -848,7 +848,7 @@ def data_aug(img, bbox_labels, mode, image_path):
     #img = Image.fromarray(img)
     img = to_chw_bgr(img)
     img = img.astype('float32')
-    img -= cfg.img_mean
+    img -= cfg.IMG_MEAN
     img = img[[2, 1, 0], :, :]  # to RGB
     #img = img * cfg.scale
 

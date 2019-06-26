@@ -231,7 +231,7 @@ def target(threshold, gts, priors, variances, labels):
     # priors框对应match的gts框-坐标
     matches = gts[best_gt_idx]  #  [num_priors, 4]
     # priors框对应match的gts框-类别
-    cls = labels[best_gt_idx] + 1  #  [num_priors]
+    cls = labels[best_gt_idx]  #  [num_priors]
 
     # 正、负样本及ignore样本区分
     if len(threshold) > 1:

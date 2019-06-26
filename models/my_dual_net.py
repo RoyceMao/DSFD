@@ -12,9 +12,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 # todo
-from .config import cur_config as cfg
-import my_priorbox
-import my_resnet
+from config import cur_config as cfg
+import layers.my_priorbox as my_priorbox
+import models.my_resnet as my_resnet
 
 
 class FEM(nn.Module):
@@ -57,16 +57,17 @@ class DualShot(nn.Module):
         super(DualShot, self).__init__()
         self.cfg = cfg
         self.phase = phase
+        self.num_classes = num_classes
         assert (self.phase == 'train' or 'test')
         c1, c2, c3, c4, c5 = channels  # 通道数
         # self.output_channels = [256, 512, 1024, 2048, 512, 256]  # Enhance之前是否需要做1*1的卷积把channels重置为output_channels
         # self.resnet = torchvision.models.resnet50()  # torchvision库里面的resnet50
         self.resnet = my_resnet.resnet50(channels)  # 自己单独定义的resnet50
         # 基网络定义的stages搭建为新的4个模块
-        self.stage_1 = nn.Sequential(self.resnet.stage1, self.resnet.stage2)  # 论文里640->160的4倍下采样
-        self.stage_2 = nn.Sequential(self.resnet.stage3)  # 2倍
-        self.stage_3 = nn.Sequential(self.resnet.stage4)  # 2倍
-        self.stage_4 = nn.Sequential(self.resnet.stage5)  # 2倍
+        self.stage_1 = nn.Sequential(self.resnet.stage1, self.resnet.stage2)  # 论文里640->160的4倍下采样  c2
+        self.stage_2 = nn.Sequential(self.resnet.stage3)  # 2倍  c3
+        self.stage_3 = nn.Sequential(self.resnet.stage4)  # 2倍  c4
+        self.stage_4 = nn.Sequential(self.resnet.stage5)  # 2倍  c5
         # 新增2个模块
         self.stage_5 = nn.Sequential(
             *[nn.Conv2d(c5, 512, kernel_size=1),
@@ -74,7 +75,7 @@ class DualShot(nn.Module):
               nn.ReLU(inplace=True),
               nn.Conv2d(512, 512, kernel_size=3, padding=1, stride=2),
               nn.BatchNorm2d(512),
-              nn.ReLU(inplace=True)]
+              nn.ReLU(inplace=True)]  # 512
         )  # 2倍
         self.stage_6 = nn.Sequential(
             *[nn.Conv2d(512, 128, kernel_size=1, ),
@@ -82,8 +83,15 @@ class DualShot(nn.Module):
               nn.ReLU(inplace=True),
               nn.Conv2d(128, 256, kernel_size=3, padding=1, stride=2),
               nn.BatchNorm2d(256),
-              nn.ReLU(inplace=True)]
+              nn.ReLU(inplace=True)]  # 256
         )  # 2倍
+        # 第1次Enhanced之前的1*1卷积（用于改变channels，方便特征点乘的融合）
+        self.latlayer1 = nn.Conv2d(c3, c2, kernel_size=1, stride=1, padding=0)
+        self.latlayer2 = nn.Conv2d(c4, c3, kernel_size=1, stride=1, padding=0)
+        self.latlayer3 = nn.Conv2d(c5, c4, kernel_size=1, stride=1, padding=0)
+        self.latlayer4 = nn.Conv2d(512, c5, kernel_size=1, stride=1, padding=0)
+        self.latlayer5 = nn.Conv2d(256, 512, kernel_size=1, stride=1, padding=0)
+        self.latlayer6 = nn.Conv2d(256, 256, kernel_size=1, stride=1, padding=0)
         # 第1次Enhanced之后的下采样（用于第2次Enhanced）
         self.bup_1 = nn.Conv2d(c2, c3, kernel_size=3, stride=2, padding=1)
         self.bup_2 = nn.Conv2d(c3, c4, kernel_size=3, stride=2, padding=1)
@@ -98,8 +106,8 @@ class DualShot(nn.Module):
         self.cpm_5 = FEM(512)
         self.cpm_6 = FEM(256)
         # multi-box的head头（施加于6个模块上，组成list模块）
-        self.head = self.multibox([512, 512, 512, 512, 512, 512], self.cfg['mbox'],
-                                  num_classes)  # FEM之后的所有模块channels数都是512
+        self.head = self.multibox([512, 512, 512, 512, 512, 512], self.cfg.MBOX,
+                                  self.num_classes)  # FEM之后的所有模块channels数都是512
         # nn.ModuleList子类能够被主module所识别，并能做参数更新
         self.loc = nn.ModuleList(self.head[0])
         self.cls = nn.ModuleList(self.head[1])
@@ -176,12 +184,12 @@ class DualShot(nn.Module):
         of_5 = self.stage_5(of_4)
         of_6 = self.stage_6(of_5)
         # 级联网络second shot PAL的产生
-        ef_6 = self._upsample_product(of_6, of_6)
-        ef_5 = self._upsample_product(ef_6, of_5)
-        ef_4 = self._upsample_product(ef_5, of_4)
-        ef_3 = self._upsample_product(ef_4, of_3)
-        ef_2 = self._upsample_product(ef_3, of_2)
-        ef_1 = self._upsample_product(ef_2, of_1)
+        ef_6 = self._upsample_product(self.latlayer6(of_6), of_6)
+        ef_5 = self._upsample_product(self.latlayer5(ef_6), of_5)
+        ef_4 = self._upsample_product(self.latlayer4(ef_5), of_4)
+        ef_3 = self._upsample_product(self.latlayer3(ef_4), of_3)
+        ef_2 = self._upsample_product(self.latlayer2(ef_3), of_2)
+        ef_1 = self._upsample_product(self.latlayer1(ef_2), of_1)
         # Enhanced features后的进一步卷积、激活特征融合（第2次Enhanced）
         conv3_3 = ef_1
         conv4_3 = F.relu(self.bup_1(conv3_3)) * ef_2
@@ -211,18 +219,18 @@ class DualShot(nn.Module):
         # 最终输出output
         ## train
         if self.phase == "train":
-            self.cfg['feature_maps'] = fp_size  # 根据具体输入情况来修改cfg
-            self.cfg['min_dim'] = image_size  #  根据具体输入情况来修改cfg
+            self.cfg.FEATURE_MAPS = fp_size  # 根据具体输入情况来修改cfg
+            self.cfg.MIN_DIM = image_size  #  根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(self.cfg)
             output = (
                 face_loc.view(face_loc.size(0), -1, 4),
                 face_cls.view(face_cls.size(0), -1, self.num_classes),
-                self.priorbox
+                self.priorbox.type(type(x.data))
             )
         ## test
         else:
-            self.cfg['feature_maps'] = fp_size  # 根据具体输入情况来修改cfg
-            self.cfg['min_dim'] = image_size  # 根据具体输入情况来修改cfg
+            self.cfg.FEATURE_MAPS = fp_size  # 根据具体输入情况来修改cfg
+            self.cfg.MIN_DIM = image_size  # 根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(self.cfg)
             output = self.detect(
                 face_loc.view(face_loc.size(0), -1, 4),

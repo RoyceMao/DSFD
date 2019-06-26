@@ -15,6 +15,8 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import numpy as np
+import warnings
+warnings.filterwarnings("ignore")
 
 from config import cur_config as cfg
 from layers.my_loss import GeneralLoss
@@ -22,7 +24,7 @@ from models.my_dual_net import DualShot
 from utils.my_data_loader import WIDERFace, face_collate
 
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-torch.cuda.set_device(1)
+torch.cuda.set_device(0)
 
 def train(args):
     """
@@ -34,8 +36,8 @@ def train(args):
     phase = 'train'
     start_epoch = 0
     # 加载数据
-    train_dataset = WIDERFace(cfg.FACE_TRAIN_FILE, mode='train')
-    val_dataset = WIDERFace(cfg.FACE_VAL_FILE, mode='val')
+    train_dataset = WIDERFace(cfg.FACE_GEN_TRAIN_FILE, mode='train')
+    val_dataset = WIDERFace(cfg.FACE_GEN_VAL_FILE, mode='val')
 
     train_loader = DataLoader(train_dataset, cfg.BATCH_SIZE,
                                    num_workers=cfg.NUM_WORKERS,
@@ -78,7 +80,7 @@ def train(args):
 
     net.train()
     for epoch in range(start_epoch, cfg.EPOCHES):
-        losses_total = 0
+        losses = 0
         metrics_list = []  # 打印前向传播待统计的logs
         output_list = []  # 打印前向传播网络的输出
         for iteration, data in enumerate(train_loader):
@@ -87,24 +89,26 @@ def train(args):
             images = Variable(images.cuda())
             targets = [Variable(ann.cuda(), volatile=True)
                        for ann in targets]
-            # 清零梯度
-            optimizer.zero_grad()
-            # images前向传播 + loss反向传播 + 梯度参数更新
+
+            # images前向传播
             start_time = time.time()
             out = net(images)
-            loss_loc, loss_cls, loss_total = criterion(out, targets)
-            loss_loc.backward()
-            loss_cls.backward()
-            loss_total.backward()
+            # 清零梯度
+            optimizer.zero_grad()
+            # loss反向传播
+            loss_loc, loss_cls, num_pos = criterion(out, targets)
+            loss = (loss_cls + cfg.ALPHA * loss_loc) / num_pos.float()  # 根据公式合并
+            loss.backward()
             optimizer.step()
-            metrics_list.append(out["metrics"])  # 新增输出
+
+            # metrics_list.append(out["metrics"])  # 新增输出
             output_list.append(out)
             # 单个epoch里每个batch的loss是不断加总的
-            losses_total += loss_total.data[0]
+            losses += loss.data[0]
             # 每训练10个batches后打印日志
             if iteration % 10 == 0:
                 # 计算平均每个batch的loss
-                mean_loss = losses_total / (iteration + 1)
+                mean_loss = losses / (iteration + 1)
                 print('Timer: %.4f' % (time.time() - start_time))
                 print('Epoch:' + repr(epoch) + ' || iter:' +
                       repr(iteration) + ' || Loss:%.4f' % (mean_loss))

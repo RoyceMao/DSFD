@@ -6,7 +6,10 @@
    date：          2019/06/13
 """
 import os
-from .config import cur_config as cfg
+import sys  
+sys.path.append("../")
+
+from config import cur_config as cfg
 
 def parse_face_file(root, file):
     """
@@ -27,10 +30,11 @@ def parse_face_file(root, file):
         if 'jpg' in line:
             face_path += [os.path.join(root, line)]
         # 人头计数
-        if int(line):
+        elif len(line.split(' ')) == 1:
             face_count += [int(line)]
         # 所有人头位置坐标
         else:
+            line = line.split(' ')
             face_loc_flatten += [[int(line[0]), int(line[1]), int(line[2]), int(line[3])]]
     # flatten后的face_loc根据图片做对应
     total_face_num = 0

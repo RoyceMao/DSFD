@@ -10,7 +10,7 @@ import random
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
-from augmentation import data_aug
+from utils.augmentation import data_aug
 
 
 class WIDERFace(Dataset):
@@ -28,6 +28,7 @@ class WIDERFace(Dataset):
         # 按行读取，.split()之后保留的是[path, face_num, face_loc]的顺序
         with open(gen_file) as f:
             lines = f.readlines()
+
         for line in lines:
             line = line.strip().split()
             face_num = int(line[1])
@@ -72,12 +73,12 @@ class WIDERFace(Dataset):
             # 指定index的img的face_label提取
             gt_label = np.array(self.labels[index])
             # 拼接后转list [face_num, (cls,x1,y1,x2,y2)]
-            gt_box_label = np.stack([gt_label[:, np.newaxis], gt_box], axis=-1).tolist()
+            gt_box_label = np.hstack((gt_label[:, np.newaxis], gt_box)).tolist()
             # 直接做数据增广
             img, gt_box_label = data_aug(img, gt_box_label, self.mode, image_path)
             # 数据增广后的[face_num, (cls,x1,y1,x2,y2)]标签转[face_num, (x1,y1,x2,y2,cls)]
             if len(gt_box_label) > 0:
-                target = np.stack([gt_box_label[:, 1:], gt_box_label[:, 0][:, np.newaxis]], axis=-1)
+                target = np.hstack((gt_box_label[:, 1:], gt_box_label[:, 0][:, np.newaxis]))
                 assert (target[:, 2] > target[:, 0]).any()
                 assert (target[:, 3] > target[:, 1]).any()
                 break  # 只有提取到有人头目标的图片（img，target）时，才加载当作训练样本。否则，一直随机加载
@@ -90,7 +91,7 @@ class WIDERFace(Dataset):
         return self.num_samples
 
 
-def detection_collate(batch):
+def face_collate(batch):
     """
     一个batch里数据的取样方式
     :param batch: 

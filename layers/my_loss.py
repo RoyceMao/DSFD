@@ -10,8 +10,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch.autograd import Variable
-from ..config import cur_config as cfg
-from ..layers.my_torch_utils import target, log_sum_exp
+from config import cur_config as cfg
+from utils.my_torch_utils import target, log_sum_exp
 
 
 class GeneralLoss(nn.Module):
@@ -20,7 +20,6 @@ class GeneralLoss(nn.Module):
         self.num_classes = cfg.NUM_CLASSES
         self.threshold = cfg.FACE_OVERLAP_THRESH
         self.negpos_ratio = cfg.NEG_POS_RATIOS
-        self.alpha = cfg.ALPHA
         self.variance = cfg.VARIANCE
 
     def loss_compute(self, predictions, targets):
@@ -36,8 +35,10 @@ class GeneralLoss(nn.Module):
         loss_cls与loss_loc
         """
         loc_preds, cls_preds, priorbox = predictions
+        priors = priorbox[:loc_preds.size(1), :]
+        priors = Variable(priors.cuda())
         batch = cls_preds.size(0)
-        num_priors = priorbox.size(0)
+        num_priors = priors.size(0)
 
         loc_batch = torch.Tensor(batch, num_priors, 4)
         cls_batch = torch.Tensor(batch, num_priors)
@@ -47,7 +48,7 @@ class GeneralLoss(nn.Module):
             gts = targets[idx][:, :-1]  # .data
             labels = targets[idx][:, -1]  # .data
             # 真实值结合predictions中的priorbox计算target
-            batch_labels, batch_deltas, metrics = target(self.threshold, gts, priorbox, self.variances, labels)
+            batch_labels, batch_deltas, metrics = target(self.threshold, gts, priors, self.variance, labels)
             # 一个单独batch的分类、回归目标赋值
             loc_batch[idx] = batch_deltas
             cls_batch[idx] = batch_labels
@@ -57,25 +58,26 @@ class GeneralLoss(nn.Module):
 
         # Smooth L1 loss（只取正样本做回归）
         pos = cls_batch > 0
-        pos_idx = pos.nonzero()
+        pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_preds)
         predict_deltas = loc_preds[pos_idx].view(-1, 4)
         deltas = loc_batch[pos_idx].view(-1, 4)
-        loss_loc = F.smooth_l1_loss(predict_deltas, deltas, size_average=False)  # size_average=False不取minibatch的loss平均，增大梯度
+        loss_loc = F.smooth_l1_loss(predict_deltas, deltas, size_average=True)  # size_average=False不取minibatch的loss平均，增大梯度
 
         # 困难负样本挖掘
-        cls_batch[cls_batch == -1] = 0  # 直接这样赋值会有问题？
-        cls_preds_sl = cls_preds.view(-1, self.num_classes)  # priorbox打平
+        ignore = cls_batch < 0
+        cls_batch[ignore] = 0
+        cls_preds_flatten = cls_preds.view(-1, self.num_classes)  # priorbox打平
         # 首先求取预测confidence的log_sum_exp值，再减去其中对应gt的confidence
-        loss_cls_sl = log_sum_exp(cls_preds_sl) - cls_preds_sl.gather(1, cls_batch.view(-1, 1))  # loss_cls_sl（模拟loss）是困难负样本筛选的参考
-        ignore_idx = (cls_batch < 0).nonzero()
+        loss_c = log_sum_exp(cls_preds_flatten) - cls_preds_flatten.gather(1, cls_batch.view(-1, 1).long())
+
         # ignore与pos样本的模拟loss均置0，不影响负样本排序
-        loss_cls_sl[pos_idx] = 0
-        loss_cls_sl[ignore_idx] = 0
+        loss_c[pos.view(-1, 1)] = 0
+        loss_c[ignore.view(-1, 1)] = 0
         # 负样本loss降序排序后，取前N个计算最终的loss_cls
-        loss_cls_sl = loss_cls_sl.view(batch, -1)  # [batch, num_priors]
-        _, loss_idx = loss_cls_sl.sort(1, descending=True)  # 单张图片（不是minibatch）里的priorbox按模拟loss降序排序
+        loss_c = loss_c.view(batch, -1)  # [batch, num_priors]
+        _, loss_idx = loss_c.sort(1, descending=True)  # 单张图片（不是minibatch）里的priorbox按模拟loss降序排序
         _, idx_rank = loss_idx.sort(1)
-        num_pos = pos.sum(1, keepdim=True)
+        num_pos = pos.long().sum(1, keepdim=True)
         num_neg = torch.clamp(self.negpos_ratio * num_pos, max=pos_idx.size(1) - 1)
         neg = idx_rank < num_neg.expand_as(idx_rank)
 
@@ -83,13 +85,10 @@ class GeneralLoss(nn.Module):
         pos_idx = pos.unsqueeze(2).expand_as(cls_preds)  # [batch, num_priors, num_classes]
         neg_idx = neg.unsqueeze(2).expand_as(cls_preds)  # [batch, num_priors, num_classes]
         predict_logits_mining = cls_preds[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)  # [batch*num_priors, num_classes]
-        labels_mining = cls_batch[(pos_idx + neg).gt(0)]  # [batch*num_priors]
+        labels_mining = cls_batch[(pos + neg).gt(0)]  # [batch*num_priors]
         loss_cls = F.cross_entropy(predict_logits_mining, labels_mining, size_average=False)  # size_average=False不取minibatch的loss平均，增大梯度
-
-        # loss合并
-        loss_total = (loss_cls + self.alpha * loss_loc) / num_pos
-
-        return loss_loc, loss_cls, loss_total
+        num_pos = num_pos.data.sum()
+        return loss_loc, loss_cls, num_pos
 
 
     def forward(self, predictions, targets):
@@ -100,6 +99,6 @@ class GeneralLoss(nn.Module):
         :param targets: 
         :return: 
         """
-        loss_loc, loss_cls, loss_total = self.loss_compute(predictions, targets)
+        loss_loc, loss_cls,num_pos = self.loss_compute(predictions, targets)
 
-        return loss_total
+        return loss_loc, loss_cls, num_pos

@@ -17,14 +17,14 @@ class PriorBox(object):
         :param cfg: 
         """
         super(PriorBox, self).__init__()
-        self.image_size = cfg['min_dim']  # 如[300, 300]尺寸
-        self.variance = cfg['variance'] or [0.1]  # 如[0.1, 0.1, 0.2, 0.2]形式，用来放大梯度
-        self.feature_maps = cfg['feature_maps']  # [[H,W],[H,W],...]的形式
-        self.min_sizes = cfg['min_sizes']  # len(min_sizes) == len(max_sizes)
-        self.max_sizes = cfg['max_sizes']  # len(min_sizes) == len(max_sizes)
-        self.steps = cfg['steps']  # image_size / feature_map_size下采样倍数
-        self.aspect_ratios = cfg['aspect_ratios']  # [[2, 1/2], [3, 1/3],...]的形式
-        self.clip = cfg['clip']  # 归一化坐标超出边界范围的修剪
+        self.image_size = cfg.MIN_DIM  # 如[300, 300]尺寸
+        self.variance = cfg.VARIANCE or [0.1]  # 如[0.1, 0.1, 0.2, 0.2]形式，用来放大梯度
+        self.feature_maps = cfg.FEATURE_MAPS  # [[H,W],[H,W],...]的形式
+        self.min_sizes = cfg.MIN_SIZES  # len(min_sizes) == len(max_sizes)
+        self.max_sizes = cfg.MAX_SIZES  # len(min_sizes) == len(max_sizes)
+        self.steps = cfg.STEPS  # image_size / feature_map_size下采样倍数
+        self.aspect_ratios = cfg.ASPECT_RATIO  # [[2, 1/2], [3, 1/3],...]的形式
+        self.clip = cfg.CLIP  # 归一化坐标超出边界范围的修剪
         # self.num_priors = len(cfg['aspect_ratios'])  #
         # self.version = cfg['name']
         for v in self.variance:
@@ -33,7 +33,7 @@ class PriorBox(object):
 
     def forward(self):
         """
-        min_size和max_size会分别生成一个正方形的框，aspect_ratio参数会生成2个长方形的框
+        min_size和max_size会分别生成一个正方形的框，aspect_ratio参数对会生成2个长方形的框
         :return: 
         """
         mean = []
@@ -57,10 +57,9 @@ class PriorBox(object):
                     s_k_prime_j = sqrt(s_k_j * (self.max_sizes[k] / self.image_size[0]))
                     mean += [cx, cy, s_k_prime_i, s_k_prime_j]
                     # 然后，4个长方形defult_box根据aspect_ratio再生成（如aspect_ratio=2，那么会自动的再添加一个aspect_ratiod = 1/2）
-                    for ar_pair in self.aspect_ratios[k]:
-                        for ar in ar_pair:
-                            mean += [cx, cy, s_k_prime_i / sqrt(ar), s_k_prime_j * sqrt(ar)]
-                            mean += [cx, cy, s_k_i / sqrt(ar), s_k_j * sqrt(ar)]
+                    for ar in self.aspect_ratios[k]:
+                        mean += [cx, cy, s_k_prime_i / sqrt(ar), s_k_prime_j * sqrt(ar)]
+                        mean += [cx, cy, s_k_i / sqrt(ar), s_k_j * sqrt(ar)]
         # 输出
         output = torch.Tensor(mean).view(-1, 4)
         if self.clip:
