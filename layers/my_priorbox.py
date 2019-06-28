@@ -51,15 +51,15 @@ class PriorBox(object):
                     # 1个正方形defult_box以min_size为基准生成
                     s_k_i = self.min_sizes[k] / self.image_size[1]
                     s_k_j = self.min_sizes[k] / self.image_size[0]
-                    mean += [cx, cy, s_k_i, s_k_j]  # 所有先验default box的归一化坐标
+                    mean += [cy, cx, s_k_j, s_k_i]  # 所有先验default box的归一化坐标
                     # 1个正方形defult_box以min_size与max_size的关系生成
                     s_k_prime_i = sqrt(s_k_i * (self.max_sizes[k] / self.image_size[1]))
                     s_k_prime_j = sqrt(s_k_j * (self.max_sizes[k] / self.image_size[0]))
-                    mean += [cx, cy, s_k_prime_i, s_k_prime_j]
+                    mean += [cy, cx, s_k_prime_j, s_k_prime_i]
                     # 然后，4个长方形defult_box根据aspect_ratio再生成（如aspect_ratio=2，那么会自动的再添加一个aspect_ratiod = 1/2）
                     for ar in self.aspect_ratios[k]:
-                        mean += [cx, cy, s_k_prime_i / sqrt(ar), s_k_prime_j * sqrt(ar)]
-                        mean += [cx, cy, s_k_i / sqrt(ar), s_k_j * sqrt(ar)]
+                        mean += [cy, cx, s_k_prime_j * sqrt(ar), s_k_prime_i / sqrt(ar)]
+                        mean += [cy, cx, s_k_j * sqrt(ar), s_k_i / sqrt(ar)]
         # 输出
         output = torch.Tensor(mean).view(-1, 4)
         if self.clip:

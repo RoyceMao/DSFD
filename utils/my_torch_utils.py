@@ -12,13 +12,24 @@ import numpy as np
 
 def center_size(boxes):
     """
-    Convert defult_boxes to 中心点加边长的模式
+    Convert (y1, x1, y2, x2)模式的priors to 中心点加边长的模式
     :param boxes: (tensor) [N, (y1, x1, y2, x2)]
     :return: 
     (tensor) [N, (cy, cx, h, w)]
     """
-    return torch.cat([boxes[:, 2:] * 0.5 + boxes[:, :2] * 0.5,  # cx, cy
-                      boxes[:, 2:] - boxes[:, :2]], dim=1)  # w, h
+    return torch.cat([boxes[:, 2:] * 0.5 + boxes[:, :2] * 0.5,  # cy, cx
+                      boxes[:, 2:] - boxes[:, :2]], dim=1)  # h, w
+
+
+def point_bound(boxes):
+    """
+    Convert (cy, cx, h, w)模式的priors to 左上顶点+右下顶点的模式
+    :param boxes: (tensor) [N, (cy, cx, h, w)]
+    :return:
+    (tensor) [N, (y1, x1, y2, x2)]
+    """
+    return torch.cat((boxes[:, :2] - boxes[:, 2:] / 2,  # ymin, xmin
+                      boxes[:, :2] + boxes[:, 2:] / 2), dim=1) # ymax, xmax
 
 
 def iou(boxes_a, boxes_b):
@@ -119,18 +130,18 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
     return keep, count
 
 
-def encode(gts, default_boxes, variances):
+def encode(matched_gts, default_boxes, variances):
     """
     根据defult_boxes及匹配的gts，计算targets
-    :param gts: Shape:[num_default_boxes, 4]
+    :param matched_gts: Shape:[num_default_boxes, 4]
     :param default_boxes: Shape:[num_default_boxes, 4]
     :param variances: list(float) Shape:[4]
     :return: 
     回归目标：Shape:[num_default_boxes, 4]
     """
     # (y1, x1, y2, x2)转(cy, cx, h, w)
-    gts_copy = center_size(gts)
-    default_boxes_copy = center_size(default_boxes)
+    gts_copy = center_size(matched_gts)
+    default_boxes_copy = default_boxes  # priors不用转center_size模式，因为已经是（cy,cx,h,w）了
 
     # 高度、宽度
     size = default_boxes_copy[:, 2:]
@@ -211,7 +222,7 @@ def target(threshold, gts, priors, variances, labels):
     
     """
     metrics = {}
-    iou_target = iou(gts, priors)
+    iou_target = iou(gts, point_bound(priors))
     # 每个gt最佳的prior
     best_prior_iou, best_prior_idx = iou_target.max(1, keepdim=True)  #  [1,num_gts]
     # 每个prior最佳的gt

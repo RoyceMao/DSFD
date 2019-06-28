@@ -35,6 +35,7 @@ class GeneralLoss(nn.Module):
         loss_cls与loss_loc
         """
         loc_preds, cls_preds, priorbox = predictions
+        # print(loc_preds)
         priors = priorbox[:loc_preds.size(1), :]
         priors = Variable(priors.cuda())
         batch = cls_preds.size(0)
@@ -45,8 +46,9 @@ class GeneralLoss(nn.Module):
 
         for idx in range(batch):
             # 真实值
-            gts = targets[idx][:, :-1]  # .data
-            labels = targets[idx][:, -1]  # .data
+            gts = targets[idx][:, :-1][:, [1,0,3,2]].data  # (x1,y1,x2,y2)转(y1,x1,y2,x2)
+            labels = targets[idx][:, -1].data  # .data
+            priors = priors.data
             # 真实值结合predictions中的priorbox计算target
             batch_labels, batch_deltas, metrics = target(self.threshold, gts, priors, self.variance, labels)
             # 一个单独batch的分类、回归目标赋值
@@ -61,6 +63,7 @@ class GeneralLoss(nn.Module):
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_preds)
         predict_deltas = loc_preds[pos_idx].view(-1, 4)
         deltas = loc_batch[pos_idx].view(-1, 4)
+        # print(predict_deltas)
         loss_loc = F.smooth_l1_loss(predict_deltas, deltas, size_average=True)  # size_average=False不取minibatch的loss平均，增大梯度
 
         # 困难负样本挖掘
@@ -88,6 +91,7 @@ class GeneralLoss(nn.Module):
         labels_mining = cls_batch[(pos + neg).gt(0)]  # [batch*num_priors]
         loss_cls = F.cross_entropy(predict_logits_mining, labels_mining, size_average=False)  # size_average=False不取minibatch的loss平均，增大梯度
         num_pos = num_pos.data.sum()
+
         return loss_loc, loss_cls, num_pos
 
 

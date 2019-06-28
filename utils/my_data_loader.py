@@ -7,11 +7,12 @@
 """
 import torch
 import random
+import traceback
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
 from utils.augmentation import data_aug
-
+from utils.my_np_utils import clip_boxes
 
 class WIDERFace(Dataset):
     def __init__(self, gen_file, mode='train'):
@@ -41,7 +42,7 @@ class WIDERFace(Dataset):
                 w = float(line[4 + 5 * i])
                 h = float(line[5 + 5 * i])
                 cls = int(line[6 + 5 * i])
-                gt.append([x, y, x + w, y + h])
+                gt.append([x, y, x + w - 1, y + h - 1])
                 label.append(cls)
             # generator汇总
             if len(gt) > 0:
@@ -66,25 +67,32 @@ class WIDERFace(Dataset):
             img_width, img_height = img.size
             # 指定index的img的face_loc的坐标归一化处理
             gt_box = np.array(self.gts[index])
-            gt_box[:, 0] /= img_width
-            gt_box[:, 1] /= img_height
-            gt_box[:, 2] /= img_width
-            gt_box[:, 3] /= img_height
+            gt_box[:, 0] = gt_box[:, 0] / img_width
+            gt_box[:, 1] = gt_box[:, 1] / img_height
+            gt_box[:, 2] = gt_box[:, 2] / img_width
+            gt_box[:, 3] = gt_box[:, 3] / img_height
             # 指定index的img的face_label提取
             gt_label = np.array(self.labels[index])
             # 拼接后转list [face_num, (cls,x1,y1,x2,y2)]
             gt_box_label = np.hstack((gt_label[:, np.newaxis], gt_box)).tolist()
             # 直接做数据增广
-            img, gt_box_label = data_aug(img, gt_box_label, self.mode, image_path)
+            try:
+                img, gt_box_label = data_aug(img, gt_box_label, self.mode, image_path)
+            except Exception as e:
+                # traceback.print_exc()
+                index = random.randrange(0, self.num_samples)
+                continue
             # 数据增广后的[face_num, (cls,x1,y1,x2,y2)]标签转[face_num, (x1,y1,x2,y2,cls)]
             if len(gt_box_label) > 0:
-                target = np.hstack((gt_box_label[:, 1:], gt_box_label[:, 0][:, np.newaxis]))
+                target = clip_boxes(gt_box_label, 1)
+                # target = np.hstack((gt_box_label[:, 1:], gt_box_label[:, 0][:, np.newaxis]))
                 assert (target[:, 2] > target[:, 0]).any()
                 assert (target[:, 3] > target[:, 1]).any()
                 break  # 只有提取到有人头目标的图片（img，target）时，才加载当作训练样本。否则，一直随机加载
             else:
                 index = random.randrange(0, self.num_samples)
 
+        # print(target)
         return torch.from_numpy(img), target
 
     def __len__(self):
