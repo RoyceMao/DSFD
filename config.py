@@ -52,11 +52,13 @@ class Config(object):
     # 采样参数
     FACE_OVERLAP_THRESH = [0.35]
     NEG_POS_RATIOS = 3
-    # detection阈值
+    # Detection阈值
     NMS_THRESH = 0.3
     NMS_TOP_K = 5000
     TOP_K = 750
     CONF_THRESH = 0.05
+    # Final confidence threshold
+    THRESHOLD = 0.4
     # 训练参数
     EPOCHES = 1
     BATCH_SIZE = 11
@@ -64,13 +66,9 @@ class Config(object):
     # 模型保存目录
     MODEL_DIR = './trained_weights'
     RESUME = './trained_weights/val_best_dsfd.pth'
+    # 需要预测的图片数据地址
+    IMG_PATH = './data/img'
     # 预测结果保存目录
     RESULTS = './out'
-
-    # def __init__(self):
-    #     super(Config, self).__init__()
-    #     self.NUM_ANCHORS = len(self.ANCHOR_SCALES)
-    #     # feature map的高度，宽度，厚度
-    #     self.FEATURES_HEIGHT, self.FEATURES_WIDTH, self.FEATURES_DEPTH = np.array(self.CROP_SIZE) // self.STRIDE
 
 cur_config = Config()

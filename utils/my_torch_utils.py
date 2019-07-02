@@ -174,7 +174,7 @@ def decode(deltas, default_boxes, variances):
     Shape:[num_default_boxes, 4]
     """
     # (y1, x1, y2, x2)转(cy, cx, h, w)
-    default_boxes_copy = center_size(default_boxes)
+    default_boxes_copy = default_boxes
 
     # 高度、宽度
     h = default_boxes_copy[:, 2]

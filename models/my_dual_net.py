@@ -117,7 +117,7 @@ class DualShot(nn.Module):
         # todo: 测试、预测阶段的detect过程
         if phase == 'test':
             self.softmax = nn.Softmax(dim=-1)
-            self.detect = my_detection.Detection(num_classes, 0, self.cfg.TOP_K, self.cfg.CONF_THRESH, self.cfg.NMS_THRESH)
+            self.detect = my_detection.Detection(self.cfg)
 
     @staticmethod
     def _upsample_product(x, y):
