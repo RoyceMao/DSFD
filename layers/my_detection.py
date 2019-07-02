@@ -7,9 +7,8 @@
 """
 import torch
 from torch.autograd import Function
-# todo
-from ..config import cur_config as cfg
-from .my_torch_utils import decode, nms
+from config import cur_config as cfg
+from utils.my_torch_utils import decode, nms
 
 
 class Detection(Function):

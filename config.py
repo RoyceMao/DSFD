@@ -23,9 +23,9 @@ class Config(object):
     MIN_DIM = [300, 300]
     MIN_SIZES = [8, 16, 32, 64, 128, 256]
     MAX_SIZES = [16, 32, 64, 128, 256, 512]
-    FEATURE_MAPS = [160, 80, 40, 20, 10, 5]  # 6个feature maps，每个fp的size
-    INPUT_SIZE = 640  # 输入size是（640，640）
-    STEPS = [4, 8, 16, 32, 64, 128]  # 6个feature maps，每个fp的下采样倍数
+    FEATURE_MAPS = [160, 80, 40, 20, 10, 5]
+    INPUT_SIZE = 640
+    STEPS = [4, 8, 16, 32, 64, 128]
     ASPECT_RATIO = [[1.0,1.0],[2, 1/2],[3, 1/3],[1.0,1.0],[2, 1/2],[3, 1/3]]  # [[2, 1/2], [3, 1/3],...]的形式
     CLIP = False
     VARIANCE = [0.1, 0.1, 0.2, 0.2]
@@ -58,11 +58,12 @@ class Config(object):
     TOP_K = 750
     CONF_THRESH = 0.05
     # 训练参数
-    EPOCHES = 10
-    BATCH_SIZE = 8
+    EPOCHES = 1
+    BATCH_SIZE = 11
     NUM_WORKERS = 4
     # 模型保存目录
     MODEL_DIR = './trained_weights'
+    RESUME = './trained_weights/val_best_dsfd.pth'
     # 预测结果保存目录
     RESULTS = './out'
 

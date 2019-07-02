@@ -5,7 +5,7 @@
    Author :        royce.mao
    date：          2019/05/29
 """
-
+import os
 import torch
 import torchvision
 import torch.nn as nn
@@ -15,6 +15,7 @@ from torch.autograd import Variable
 from config import cur_config as cfg
 import layers.my_priorbox as my_priorbox
 import models.my_resnet as my_resnet
+import layers.my_detection as my_detection
 
 
 class FEM(nn.Module):
@@ -116,7 +117,7 @@ class DualShot(nn.Module):
         # todo: 测试、预测阶段的detect过程
         if phase == 'test':
             self.softmax = nn.Softmax(dim=-1)
-            self.detect = Detect()
+            self.detect = my_detection.Detection(num_classes, 0, self.cfg.TOP_K, self.cfg.CONF_THRESH, self.cfg.NMS_THRESH)
 
     @staticmethod
     def _upsample_product(x, y):
@@ -157,9 +158,25 @@ class DualShot(nn.Module):
         priorbox = Variable(priorbox.forward(), volatile=True)
         return priorbox
 
+    def load_weights(self, base_file):
+        """
+        按层顺序加载权重
+        :param base_file: 
+        :return: 
+        """
+        other, ext = os.path.splitext(base_file)
+        if ext == '.pkl' or '.pth':
+            print('Loading weights into state dict...')
+            self.load_state_dict(torch.load(base_file,
+                                 map_location=lambda storage, loc: storage))
+            print('Finished!')
+        else:
+            print('Sorry only .pth and .pkl files supported.')
+
+
     def forward(self, x):
         """
-        
+
         :param x: inputs
         :return: 
             test:
@@ -220,7 +237,7 @@ class DualShot(nn.Module):
         ## train
         if self.phase == "train":
             self.cfg.FEATURE_MAPS = fp_size  # 根据具体输入情况来修改cfg
-            self.cfg.MIN_DIM = image_size  #  根据具体输入情况来修改cfg
+            self.cfg.MIN_DIM = image_size  # 根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(self.cfg)
             output = (
                 face_loc.view(face_loc.size(0), -1, 4),
