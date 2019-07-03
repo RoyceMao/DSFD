@@ -59,7 +59,7 @@ def detect(net, img_path, thresh):
     # 根据softmax归一化的结果，逐class判断
     for i in range(detections.size(1)):
         j = 0
-        while detections[0, i, j, 0] >= thresh:
+        while j < cfg.TOP_K and detections[0, i, j, 0] >= thresh:
             # 可视化
             score = detections[0, i, j, 0]
             pt = (detections[0, i, j, 1:] * scale).cpu().numpy().astype(int)
