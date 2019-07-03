@@ -70,5 +70,9 @@ class Config(object):
     IMG_PATH = './data/img'
     # 预测结果保存目录
     RESULTS = './out'
+    
+    # 精调的日志目录
+    EXCEL_PATH = './tmp_for_adjust/{}.xlsx'
+    KEY_NAME = 'loc.0.weight'  # 需要查看训练参数信息的层
 
 cur_config = Config()

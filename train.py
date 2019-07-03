@@ -22,6 +22,7 @@ from config import cur_config as cfg
 from layers.my_loss import GeneralLoss
 from models.my_dual_net import DualShot
 from utils.my_data_loader import WIDERFace, face_collate
+from tmp_for_adjust.weights_bias_log import weights_bias_parm, parm_to_excel
 
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 torch.cuda.set_device(1)
@@ -64,7 +65,7 @@ def train(args):
     save_path = os.path.join(cfg.MODEL_DIR, 'model.{:03d}.pth')  # 保存pth格式权重
 
     # 加载预训练（并直接从指定start_epoch开始继续训练）
-    if args.resume:
+    if args.mode == 'resume':
         print('[INFO] Load model from {}...'.format(args.resume))
         # torch_utils.load_net(args.resume, net)
         net.load_weights(args.resume)
@@ -120,6 +121,9 @@ def train(args):
                 print('->> conf loss:{:.4f} || loc loss:{:.4f}'.format(
                     loss_cls.data[0], loss_loc.data[0]))
                 print('->>lr:{}'.format(optimizer.param_groups[0]['lr']))
+                # 保存权重、偏置、特征信息
+                wb_parm = weights_bias_parm(net)
+                parm_to_excel(cfg.EXCEL_PATH.format(cfg.KEY_NAME), cfg.KEY_NAME, wb_parm)
 
         # 每个epoch打印一次metrics
         metric_print(metrics_list)
@@ -200,13 +204,16 @@ def metric_print(metrics_list):
 
 
 if __name__ == '__main__':
-    # python train.py './trained_weights/val_best_dsfd.pth'
+    # python train.py resume or python train.py scratch
     parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(help='Arguments for specific resume.', dest='dataset_type')
+    subparsers = parser.add_subparsers(help='Arguments for specific resume.', dest='mode')
     subparsers.required = True
     
     resume_parser = subparsers.add_parser('resume')
     resume_parser.add_argument("--resume", help="weights_path", default=cfg.RESUME)
+
+    scratch_parser = subparsers.add_parser('scratch')
+    scratch_parser.add_argument("--scratch", help="from scratch", default=None)
 
     argments = parser.parse_args(sys.argv[1:])  # 新增的resume参数，指定net需要加载的权重参数
     # 用来每个epoch走完之后，val_loss的比较以保存最佳model
