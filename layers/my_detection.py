@@ -5,6 +5,7 @@
    Author :        royce.mao
    date：          2019/05/31
 """
+import numpy as np
 import torch
 from torch.autograd import Function
 from config import cur_config as cfg
@@ -38,12 +39,13 @@ class Detection(Function):
                 Shape: [batch,num_priors,4]
             cls_pred: (tensor) Shape: Conf preds from conf layers
                 Shape: [batch,num_priors,num_classes]
-            prior_box: (tensor) Prior boxes and variances from priorbox layers
+            priors: (tensor) Prior boxes and variances from priorbox layers
                 Shape: [num_priors,4]
         """
         # batch_size与每个batch的prior_box数量
+        priors = prior_box[:loc_pred.size(1), :]
         batch = loc_pred.size(0)  # batch size == 1
-        num_priors = prior_box.size(0)
+        num_priors = priors.size(0)
 
         # 初始化output维度
         # todo:
@@ -51,9 +53,9 @@ class Detection(Function):
         output = torch.zeros(batch, self.num_classes, self.top_k, 5)
         
         # 应用边框回归
-        batch_priors = prior_box.view(-1, num_priors,
+        batch_priors = priors.view(-1, num_priors,
                                        4).expand(batch, num_priors, 4)
-        batch_priors = batch_priors.contiguous().view(-1, 4)
+        batch_priors = batch_priors.contiguous().view(-1, 4).cuda()
 
         decoded_boxes = decode(loc_pred.view(-1, 4),
                                batch_priors, self.variance)
@@ -67,6 +69,8 @@ class Detection(Function):
             for cls in range(1, self.num_classes):
                 # 指定类别对应的prior boxes，并用conf_thresh过滤
                 cls_mask = cls_scores[cls].gt(self.conf_thresh)  # 逐元素判断元素与conf_thresh的大小关系，大于返回True，不大于返回False
+                # cls_mask = torch.ones_like(cls_scores[cls]).long().cuda()  # 测试
+                # print(np.unique(cls_mask.cpu().numpy()))
                 scores = cls_scores[cls][cls_mask]
 
                 if scores.dim() == 0:
