@@ -215,7 +215,7 @@ def target(threshold, gts, priors, variances, labels):
     :param variances: 
     :param labels: All the class labels for the gts, Shape: [num_gts]
     :return: deltas: tensor [rois_num,(dy,dx,dz,dh,dw,dd)]
-    :return: labels: tensor [rois_num,(y1,x1,z1,y2,x2,z2)]
+    :return: labels: tensor [rois_num]
     :return: metrics: dict 用于打印统计样本情况
     # :return: rois: tensor [rois_num]
     # :return: rois_indices: tensor [rois_num] roi在原始的mini-batch中的索引号;roiAlign时用到

@@ -50,6 +50,7 @@ class GeneralLoss(nn.Module):
             priors = priors.data
             # 真实值结合predictions中的priorbox计算target
             batch_labels, batch_deltas, metrics = target(self.threshold, gts, priors, self.variance, labels)
+            # print(batch_labels.data.sum())  # 打印每张图片上正样本anchors的数量
             # 一个单独batch的分类、回归目标赋值
             loc_batch[idx] = batch_deltas
             cls_batch[idx] = batch_labels
@@ -91,6 +92,8 @@ class GeneralLoss(nn.Module):
         loss_cls = F.cross_entropy(predict_logits_mining, labels_mining, size_average=True)  # size_average=False不取minibatch的loss平均，增大梯度
 
         # 返回值
+        print('batch_size下的正样本数量：{}'.format(pos.data.sum()))
+        print('batch_size下的负样本数量：{}'.format(neg.data.sum()))
         num_pos = num_pos.data.sum()
         loss = (loss_cls + cfg.ALPHA * loss_loc) / num_pos.float()  # 根据公式合并
 

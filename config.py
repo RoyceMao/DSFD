@@ -13,8 +13,8 @@ class Config(object):
     # 相关路径
     TRAIN_ROOT = '/home/dataset/face_recognize/face_detect/WIDER_train/images'
     VAL_ROOT = '/home/dataset/face_recognize/face_detect/WIDER_val/images'
-    FACE_GEN_TRAIN_FILE = '/home/mh/face/DSFD/data/train.txt'
-    FACE_GEN_VAL_FILE = '/home/mh/face/DSFD/data/val.txt'
+    FACE_GEN_TRAIN_FILE = './data/train.txt'
+    FACE_GEN_VAL_FILE = './data/val.txt'
     # 类别数与loss合并参数
     ALPHA = 1.0
     NUM_CLASSES = 2
@@ -73,6 +73,6 @@ class Config(object):
     
     # 精调的日志目录
     EXCEL_PATH = './tmp_for_adjust/{}.xlsx'
-    KEY_NAME = 'loc.0.weight'  # 需要查看训练参数信息的层
+    KEY_NAME = 'loc.0.weight'  # 需要查看训练参数信息的层key值（直接在这里修改）
 
 cur_config = Config()

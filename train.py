@@ -73,7 +73,7 @@ def train(args):
         print('[INFO] No Pretraining weights...')
 
     # 优化器对象与损失函数对象
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-6)
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5)
     criterion = GeneralLoss(cfg)
 
     # 训练
@@ -108,8 +108,9 @@ def train(args):
             # 新增metrics输出
             # metrics_list.append(out["metrics"])
             # output_list.append(out)
+
             # 单个epoch里每个batch的loss不断加总
-            losses += loss.data[0]
+            losses += loss.data[0]  # 注：不能直接losses += loss，会随着epoches循环爆gpu的显存
 
             # 每训练10个batches后打印日志
             if iteration % 10 == 0:
@@ -127,12 +128,12 @@ def train(args):
 
         # 每个epoch打印一次metrics
         metric_print(metrics_list)
-        # 每个epoch保存save模型
+        # 每个epoch保存save一次模型的权重/偏置
         if epoch % 1 == 0:
             # torch_utils.save_net(save_path.format(epoch), net)
             torch.save(net.state_dict(), save_path.format(epoch))
 
-        # 每个epoch评估测试一次（重要！！！）
+        # 每个epoch评估测试一次（并保存最佳的权重/偏置参数信息）
         val(epoch, net, criterion, val_loader)
 
     print('[INFO] Finished Training')
@@ -168,7 +169,7 @@ def val(epoch, net, criterion, val_loader):
     print('Test Epoch:' + repr(epoch) + ' || Loss:%.4f' % (mean_loss_val))
     # 每个epoch根据目前的val_loss与以往的val_loss相比，有提升的话才保存模型
     global min_loss  # 设为全局变量
-    if mean_loss_val.numpy() < min_loss:
+    if mean_loss_val.cpu().numpy() < min_loss:
         print('Saving best state,epoch', epoch)
         torch.save(net.state_dict(), os.path.join(
             cfg.MODEL_DIR, 'val_best_dsfd.pth'))

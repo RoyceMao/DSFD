@@ -249,6 +249,8 @@ class DualShot(nn.Module):
             self.cfg.FEATURE_MAPS = fp_size  # 根据具体输入情况来修改cfg
             self.cfg.MIN_DIM = image_size  # 根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(self.cfg)
+            # print(face_loc.view(face_loc.size(0), -1, 4).shape)  # torch.Size([1, 125078, 4])
+            # print(self.priorbox.type(type(x.data)).shape)  # torch.Size([750468, 4])
             output = self.detect(
                 face_loc.view(face_loc.size(0), -1, 4),
                 self.softmax(face_cls.view(face_cls.size(0), -1, self.num_classes)),  # face_cls过softmax函数做归一化
@@ -256,24 +258,6 @@ class DualShot(nn.Module):
             )
 
         return output
-
-
-# def build_ssd(phase, size=640, num_classes=2):
-#     """
-#     外部调用的接口函数
-#     :param phase: train or test
-#     :param size: input size
-#     :param num_classes: cls数量
-#     :return:
-#     """
-#     if phase != "test" and phase != "train":
-#         print("ERROR: Phase: " + phase + " not recognized")
-#         return
-#     if size!=640:
-#         print("ERROR: You specified size " + repr(size) + ". However, " +
-#               "currently only SSD640 (size=640) is supported!")
-#
-#     return DualShot(phase, cfg, num_classes)
 
 
 def main():
