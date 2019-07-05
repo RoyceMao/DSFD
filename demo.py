@@ -18,6 +18,8 @@ import torch.backends.cudnn as cudnn
 
 from config import cur_config as cfg
 from models.my_dual_net import DualShot
+from models.dual_net_resnet import build_net_resnet
+from models.dual_net_vgg import build_net_vgg
 from utils.augmentation import to_chw_bgr  # channel first and RGB2GBR
 
 torch.cuda.set_device(1)
@@ -85,7 +87,9 @@ def detect(net, img_path, thresh):
 def main():
     #
     print("====初始化网络=====")
-    net = DualShot('test', cfg, cfg.NUM_CLASSES)
+    # net = DualShot('test', cfg, cfg.NUM_CLASSES)
+    # net = build_net_resnet('test', cfg.NUM_CLASSES, 'resnet50')
+    net = build_net_vgg('test', cfg.NUM_CLASSES)
     net.load_weights(cfg.RESUME)
     net.eval()
     net.cuda()

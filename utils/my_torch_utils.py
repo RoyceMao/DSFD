@@ -223,10 +223,7 @@ def target(threshold, gts, priors, variances, labels):
     """
     metrics = {}
     iou_target = iou(gts, point_bound(priors))
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
     # 每个gt最佳的prior
     best_prior_iou, best_prior_idx = iou_target.max(1, keepdim=True)  #  [num_gts,1]
     # 每个prior最佳的gt

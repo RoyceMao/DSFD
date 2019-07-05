@@ -25,11 +25,7 @@ from models.my_dual_net import DualShot
 from models.dual_net_resnet import build_net_resnet
 from models.dual_net_vgg import build_net_vgg
 from utils.my_data_loader import WIDERFace, face_collate
-<<<<<<< Updated upstream
-from tmp_for_adjust.weights_bias_log import weights_bias_parm, parm_to_excel
-=======
 from tmp_for_adjust.weights_bias_log import weights_bias_parm, parm_to_excel  # 打印weights、bias情况的脚本
->>>>>>> Stashed changes
 
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 torch.cuda.set_device(1)
@@ -62,8 +58,8 @@ def train(args):
     # 初始化网络
     print("====初始化网络=====")
     # net = DualShot(phase, cfg, cfg.NUM_CLASSES)  # 源码重构网络
-    net = build_net_resnet(phase, cfg.NUM_CLASSES, 'resnet50')  # 源resnet网络
-    # net = build_net_vgg(phase, cfg.NUM_CLASSES)  # 源vgg网络
+    # net = build_net_resnet(phase, cfg.NUM_CLASSES, 'resnet50')  # 源resnet网络
+    net = build_net_vgg(phase, cfg.NUM_CLASSES)  # 源vgg网络
     # if args.multigpu:
     #     net = torch.nn.DataParallel(net)  # 训练过程中多GPU的使用
     net.cuda()
@@ -98,29 +94,11 @@ def train(args):
         for iteration, data in enumerate(train_loader):
             # images与targets放GPU上
             images, targets = data 
-<<<<<<< Updated upstream
-            # print(np.unique(images.numpy()))  # 每个batch里，每张img的像素值都一样？？？
-=======
             # print(images.numpy())  # 每个batch里，每张img的像素值都一样？？？
->>>>>>> Stashed changes
             images = Variable(images.cuda())
             targets = [Variable(ann.cuda(), volatile=True)
                        for ann in targets]
 
-<<<<<<< Updated upstream
-            # 清零梯度
-            optimizer.zero_grad()
-
-            # images前向传播
-            start_time = time.time()
-            # print(images)
-            out = net(images)
-
-            # loss反向传播
-            loss, loss_loc, loss_cls = criterion(out, targets)
-            loss.backward()
-            optimizer.step()
-=======
             # images前向传播
             start_time = time.time()
             # print(images.shape)
@@ -134,18 +112,13 @@ def train(args):
             loss.backward()
             optimizer.step()
             scheduler.step()
->>>>>>> Stashed changes
 
             # 新增metrics输出
             # metrics_list.append(out["metrics"])
             # output_list.append(out)
 
             # 单个epoch里每个batch的loss不断加总
-<<<<<<< Updated upstream
-            losses += loss.data[0]  # 注：不能直接losses += loss，会随着epoches循环爆gpu的显存
-=======
             losses += loss.data.item()  # 注：不能直接losses += loss，会随着epoches循环爆gpu的显存
->>>>>>> Stashed changes
 
             # 每训练10个batches后打印日志
             if iteration % 10 == 0:
@@ -158,13 +131,8 @@ def train(args):
                       # loss_cls_s1.data[0], loss_cls_s2.data[0], loss_loc_s1.data[0], loss_loc_s2.data[0]))
                 print('->>lr:{}'.format(optimizer.param_groups[0]['lr']))
                 # 保存权重、偏置、特征信息
-<<<<<<< Updated upstream
-                wb_parm = weights_bias_parm(net)
-                parm_to_excel(cfg.EXCEL_PATH.format(cfg.KEY_NAME), cfg.KEY_NAME, wb_parm)
-=======
                 # wb_parm = weights_bias_parm(net)
                 # parm_to_excel(cfg.EXCEL_PATH.format(cfg.KEY_NAME), cfg.KEY_NAME, wb_parm)
->>>>>>> Stashed changes
 
         # 每个epoch打印一次metrics
         metric_print(metrics_list)
@@ -200,13 +168,8 @@ def val(epoch, net, criterion, val_loader):
                    for ann in targets]
         # 模型前向传播进行预测，并计算val_loss（注：这里的val_loss并不做反向传播，也不需要optimizer的更新）
         out = net(images)
-<<<<<<< Updated upstream
-        loss_total_val, loss_loc_val, loss_cls_val = criterion(out, targets)
-        losses_total_val += loss_total_val.data[0]
-=======
         loss_val, loss_loc_s1_val, loss_cls_s1_val, loss_loc_s2_val, loss_cls_s2_val = criterion(out, targets)
         losses_total_val += loss_val.data[0]
->>>>>>> Stashed changes
         step += 1
     # 每次评估只打印一次日志
     mean_loss_val = losses_total_val / step
@@ -254,11 +217,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(help='Arguments for specific resume.', dest='mode')
     subparsers.required = True
-<<<<<<< Updated upstream
-    
-=======
 
->>>>>>> Stashed changes
     resume_parser = subparsers.add_parser('resume')
     resume_parser.add_argument("--resume", help="weights_path", default=cfg.RESUME)
 

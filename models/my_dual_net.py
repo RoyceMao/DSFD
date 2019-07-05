@@ -174,8 +174,6 @@ class DualShot(nn.Module):
         else:
             print('Sorry only .pth and .pkl files supported.')
 
-<<<<<<< Updated upstream
-=======
     def weights_init(self, m):
         """
         按module顺序初始化权重
@@ -197,7 +195,6 @@ class DualShot(nn.Module):
 
     def xavier(self, param):
         init.xavier_uniform(param)
->>>>>>> Stashed changes
 
     def forward(self, x):
         """
@@ -261,15 +258,9 @@ class DualShot(nn.Module):
         # 最终输出output
         ## train
         if self.phase == "train":
-<<<<<<< Updated upstream
-            self.cfg.FEATURE_MAPS = fp_size  # 根据具体输入情况来修改cfg
-            self.cfg.MIN_DIM = image_size  # 根据具体输入情况来修改cfg
-            self.priorbox = self.init_priorbox(self.cfg)
-=======
             features_maps = fp_size  # 根据具体输入情况来修改cfg
             input_size = image_size  # 根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(input_size, features_maps, self.cfg)
->>>>>>> Stashed changes
             output = (
                 face_loc.view(face_loc.size(0), -1, 4),
                 face_cls.view(face_cls.size(0), -1, self.num_classes),
@@ -277,15 +268,9 @@ class DualShot(nn.Module):
             )
         ## test
         else:
-<<<<<<< Updated upstream
-            self.cfg.FEATURE_MAPS = fp_size  # 根据具体输入情况来修改cfg
-            self.cfg.MIN_DIM = image_size  # 根据具体输入情况来修改cfg
-            self.priorbox = self.init_priorbox(self.cfg)
-=======
             features_maps = fp_size  # 根据具体输入情况来修改cfg
             input_size = image_size  # 根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(input_size, features_maps, self.cfg)
->>>>>>> Stashed changes
             # print(face_loc.view(face_loc.size(0), -1, 4).shape)  # torch.Size([1, 125078, 4])
             # print(self.priorbox.type(type(x.data)).shape)  # torch.Size([750468, 4])
             output = self.detect(

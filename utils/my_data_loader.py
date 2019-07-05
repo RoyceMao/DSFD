@@ -77,19 +77,11 @@ class WIDERFace(Dataset):
             gt_box_label = np.hstack((gt_label[:, np.newaxis], gt_box)).tolist()
             # 直接做数据增广
             try:
-<<<<<<< Updated upstream
-                img, gt_box_label = data_aug(img, gt_box_label, self.mode, image_path)
-                # 数据增广后的[face_num, (cls,x1,y1,x2,y2)]标签转[face_num, (x1,y1,x2,y2,cls)]
-                if len(gt_box_label) > 0:
-                    target = clip_boxes(gt_box_label, 1)
-                    # target = np.hstack((gt_box_label[:, 1:], gt_box_label[:, 0][:, np.newaxis]))
-=======
                 img, sample_box_label = data_aug(img, gt_box_label, self.mode, image_path)
                 # 数据增广后的[face_num, (cls,x1,y1,x2,y2)]标签转[face_num, (x1,y1,x2,y2,cls)]
                 if len(sample_box_label) > 0:
                     target = clip_boxes(sample_box_label, 1)
                     # target = np.hstack((sample_box_label[:, 1:], sample_box_label[:, 0][:, np.newaxis]))
->>>>>>> Stashed changes
                     assert (target[:, 2] > target[:, 0]).any()
                     assert (target[:, 3] > target[:, 1]).any()
                     break  # 只有提取到有人头目标的图片（img，target）时，才加载当作训练样本。否则，一直随机加载
