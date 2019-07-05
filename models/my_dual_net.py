@@ -9,6 +9,7 @@ import os
 import torch
 import torchvision
 import torch.nn as nn
+import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Variable
 # todo
@@ -148,13 +149,13 @@ class DualShot(nn.Module):
         return loc_layers, cls_layers
 
     @staticmethod
-    def init_priorbox(cfg):
+    def init_priorbox(input_size, features_maps, cfg):
         """
         在6个模块的feature_maps上面初始化priorbox
         :param cfg: 
         :return: 
         """
-        priorbox = my_priorbox.PriorBox(cfg)
+        priorbox = my_priorbox.PriorBox(input_size, features_maps, cfg)
         priorbox = Variable(priorbox.forward(), volatile=True)
         return priorbox
 
@@ -173,6 +174,30 @@ class DualShot(nn.Module):
         else:
             print('Sorry only .pth and .pkl files supported.')
 
+<<<<<<< Updated upstream
+=======
+    def weights_init(self, m):
+        """
+        按module顺序初始化权重
+        :param m: module
+        :return: 
+        """
+        if isinstance(m, nn.Conv2d):
+            self.xavier(m.weight.data)
+
+        if isinstance(m, nn.ConvTranspose2d):
+            self.xavier(m.weight.data)
+            if 'bias' in m.state_dict().keys():
+                m.bias.data.zero_()
+
+        if isinstance(m, nn.BatchNorm2d):
+            m.weight.data[...] = 1
+            if 'bias' in m.state_dict().keys():
+                m.bias.data.zero_()
+
+    def xavier(self, param):
+        init.xavier_uniform(param)
+>>>>>>> Stashed changes
 
     def forward(self, x):
         """
@@ -190,7 +215,7 @@ class DualShot(nn.Module):
                     3: roi layers, Shape: [2,num_priorbox*4]
         """
         # 需要的中间参数
-        image_size = [x.shape[2], x.shape[3]]
+        image_size = x.size()[2:]  # [x.shape[2], x.shape[3]]
         loc = list()
         cls = list()
         # 级联网络First Shot PAL
@@ -236,9 +261,15 @@ class DualShot(nn.Module):
         # 最终输出output
         ## train
         if self.phase == "train":
+<<<<<<< Updated upstream
             self.cfg.FEATURE_MAPS = fp_size  # 根据具体输入情况来修改cfg
             self.cfg.MIN_DIM = image_size  # 根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(self.cfg)
+=======
+            features_maps = fp_size  # 根据具体输入情况来修改cfg
+            input_size = image_size  # 根据具体输入情况来修改cfg
+            self.priorbox = self.init_priorbox(input_size, features_maps, self.cfg)
+>>>>>>> Stashed changes
             output = (
                 face_loc.view(face_loc.size(0), -1, 4),
                 face_cls.view(face_cls.size(0), -1, self.num_classes),
@@ -246,9 +277,15 @@ class DualShot(nn.Module):
             )
         ## test
         else:
+<<<<<<< Updated upstream
             self.cfg.FEATURE_MAPS = fp_size  # 根据具体输入情况来修改cfg
             self.cfg.MIN_DIM = image_size  # 根据具体输入情况来修改cfg
             self.priorbox = self.init_priorbox(self.cfg)
+=======
+            features_maps = fp_size  # 根据具体输入情况来修改cfg
+            input_size = image_size  # 根据具体输入情况来修改cfg
+            self.priorbox = self.init_priorbox(input_size, features_maps, self.cfg)
+>>>>>>> Stashed changes
             # print(face_loc.view(face_loc.size(0), -1, 4).shape)  # torch.Size([1, 125078, 4])
             # print(self.priorbox.type(type(x.data)).shape)  # torch.Size([750468, 4])
             output = self.detect(

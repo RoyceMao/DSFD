@@ -223,24 +223,37 @@ def target(threshold, gts, priors, variances, labels):
     """
     metrics = {}
     iou_target = iou(gts, point_bound(priors))
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
     # 每个gt最佳的prior
-    best_prior_iou, best_prior_idx = iou_target.max(1, keepdim=True)  #  [1,num_gts]
+    best_prior_iou, best_prior_idx = iou_target.max(1, keepdim=True)  #  [num_gts,1]
     # 每个prior最佳的gt
     best_gt_iou, best_gt_idx = iou_target.max(0, keepdim=True)  # [1,num_priors]
+
+    # print(best_prior_iou)
 
     # 降维
     best_gt_idx.squeeze_(0)
     best_gt_iou.squeeze_(0)
-    best_prior_idx.squeeze_(1)  # squeeze()选的dim=1？
-    best_prior_iou.squeeze_(1)  # squeeze()选的dim=1？
+    best_prior_idx.squeeze_(1)  
+    best_prior_iou.squeeze_(1)
 
-    # 与每个gt最大iou的prior的iou值设置为2（注：避免某些gts的最大iou都小于threshold，二把match该的情况）
+    # 临时最佳正负样本采样
+    # pos = best_gt_iou > threshold[0]
+    # best_gt_iou[pos] = 2
+
+    # 与每个gt最大iou的prior的iou值设置为2
     best_gt_iou.index_fill_(0, best_prior_idx, 2)  # [num_priors]
+
     # 保证每个gt对应match的priors都是iou值最大
     for j in range(best_prior_idx.size(0)):
         best_gt_idx[best_prior_idx[j]] = j
+
     # priors框对应match的gts框-坐标
     matches = gts[best_gt_idx]  #  [num_priors, 4]
+
     # priors框对应match的gts框-类别
     cls = labels[best_gt_idx]  #  [num_priors]
 
@@ -255,8 +268,7 @@ def target(threshold, gts, priors, variances, labels):
     batch_labels = cls
     # 回归目标
     batch_deltas = encode(matches, priors, variances)
-    # # 合并
-    # batch_target = np.concatenate([batch_deltas, batch_labels[:, np.newaxis]], -1)
+    # print(batch_deltas)
 
     return batch_labels, batch_deltas, metrics
 

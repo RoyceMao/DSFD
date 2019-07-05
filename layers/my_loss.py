@@ -47,13 +47,20 @@ class GeneralLoss(nn.Module):
             # 真实值
             gts = targets[idx][:, :-1][:, [1,0,3,2]].data  # (x1,y1,x2,y2)转(y1,x1,y2,x2)
             labels = targets[idx][:, -1].data  # .data
+<<<<<<< Updated upstream
             priors = priors.data
             # 真实值结合predictions中的priorbox计算target
             batch_labels, batch_deltas, metrics = target(self.threshold, gts, priors, self.variance, labels)
             # print(batch_labels.data.sum())  # 打印每张图片上正样本anchors的数量
+=======
+            defaults = priors.data
+            # 真实值结合predictions中的priorbox计算target
+            batch_labels, batch_deltas, metrics = target(self.threshold, gts, defaults, self.variance, labels)
+
+>>>>>>> Stashed changes
             # 一个单独batch的分类、回归目标赋值
-            loc_batch[idx] = batch_deltas
-            cls_batch[idx] = batch_labels
+            loc_batch[idx] = batch_deltas  # [batch_size, 34125, 4]
+            cls_batch[idx] = batch_labels  # [batch_size, 34125]
         # 两个目标均设置为gpu上的Variable对象
         loc_batch = Variable(loc_batch.cuda(), requires_grad=False)
         cls_batch = Variable(cls_batch.cuda(), requires_grad=False)
@@ -63,7 +70,12 @@ class GeneralLoss(nn.Module):
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_preds)
         predict_deltas = loc_preds[pos_idx].view(-1, 4)
         deltas = loc_batch[pos_idx].view(-1, 4)
+<<<<<<< Updated upstream
         loss_loc = F.smooth_l1_loss(predict_deltas, deltas, size_average=True)  # size_average=False不取minibatch的loss平均，增大梯度
+=======
+        # print(deltas)
+        loss_loc = F.smooth_l1_loss(predict_deltas, deltas, size_average=False)  # size_average=False不取minibatch的loss平均，增大梯度
+>>>>>>> Stashed changes
 
         # 困难负样本挖掘
         ignore = cls_batch < 0
@@ -71,13 +83,21 @@ class GeneralLoss(nn.Module):
         cls_preds_flatten = cls_preds.view(-1, self.num_classes)  # priorbox打平
         # 首先求取预测confidence的log_sum_exp值，再减去其中对应gt的confidence
         loss_c = log_sum_exp(cls_preds_flatten) - cls_preds_flatten.gather(1, cls_batch.view(-1, 1).long())
+<<<<<<< Updated upstream
         # print(loss_c)
+=======
+>>>>>>> Stashed changes
 
         # ignore与pos样本的模拟loss均置0，不影响负样本排序
         loss_c[pos.view(-1, 1)] = 0
         loss_c[ignore.view(-1, 1)] = 0
         # 负样本loss降序排序后，取前N个计算最终的loss_cls
         loss_c = loss_c.view(batch, -1)  # [batch, num_priors]
+<<<<<<< Updated upstream
+=======
+        
+        # print(torch.max(loss_c))  # 有nan出现
+>>>>>>> Stashed changes
         _, loss_idx = loss_c.sort(1, descending=True)  # 单张图片（不是minibatch）里的priorbox按模拟loss降序排序
         _, idx_rank = loss_idx.sort(1)
         num_pos = pos.long().sum(1, keepdim=True)
@@ -89,6 +109,7 @@ class GeneralLoss(nn.Module):
         neg_idx = neg.unsqueeze(2).expand_as(cls_preds)  # [batch, num_priors, num_classes]
         predict_logits_mining = cls_preds[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)  # [batch*num_priors, num_classes]
         labels_mining = cls_batch[(pos + neg).gt(0)]  # [batch*num_priors]
+<<<<<<< Updated upstream
         loss_cls = F.cross_entropy(predict_logits_mining, labels_mining, size_average=True)  # size_average=False不取minibatch的loss平均，增大梯度
 
         # 返回值
@@ -98,6 +119,19 @@ class GeneralLoss(nn.Module):
         loss = (loss_cls + cfg.ALPHA * loss_loc) / num_pos.float()  # 根据公式合并
 
         return loss, loss_loc, loss_cls
+=======
+        loss_cls = F.cross_entropy(predict_logits_mining, labels_mining, size_average=False)  # size_average=False不取minibatch的loss平均，增大梯度
+
+        # 返回值
+        # print('batch_size下的正样本数量：{}'.format(pos.data.sum()))
+        # print('batch_size下的负样本数量：{}'.format(neg.data.sum()))
+        N = num_pos.data.sum() if num_pos.data.sum() > 0 else batch
+        # loss = (loss_cls + cfg.ALPHA * loss_loc) / N.float()  # 根据公式合并
+        loss_loc = loss_loc / N.float()
+        loss_cls = loss_cls / N.float()
+
+        return loss_loc, loss_cls
+>>>>>>> Stashed changes
 
 
     def forward(self, predictions, targets):
@@ -108,6 +142,18 @@ class GeneralLoss(nn.Module):
         :param targets: 
         :return: 
         """
+<<<<<<< Updated upstream
         loss, loss_loc, loss_cls = self.loss_compute(predictions, targets)
 
         return loss, loss_loc, loss_cls
+=======
+        if len(predictions) == 6:  # 源网络返回情况（Dual_shot）
+            loss_loc_s1, loss_cls_s1 = self.loss_compute(predictions[:3], targets)
+            loss_loc_s2, loss_cls_s2 = self.loss_compute(predictions[3:], targets)
+            loss = loss_loc_s1 + loss_cls_s1 + loss_loc_s2 + loss_cls_s2
+        else:  # 重构网络返回情况（Single_shot）
+            loss_loc, loss_cls = self.loss_compute(predictions, targets)
+            loss = loss_loc + loss_cls
+
+        return loss  # , loss_loc_s1, loss_cls_s1, loss_loc_s2, loss_cls_s2
+>>>>>>> Stashed changes

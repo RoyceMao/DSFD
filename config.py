@@ -20,13 +20,22 @@ class Config(object):
     NUM_CLASSES = 2
     # prior_box参数
     MBOX = [1, 1, 1, 1, 1, 1]
+<<<<<<< Updated upstream
     MIN_DIM = [300, 300]
     MIN_SIZES = [8, 16, 32, 64, 128, 256]
     MAX_SIZES = [16, 32, 64, 128, 256, 512]
+=======
+    # BASE_SIZES = [8, 16, 32, 64, 128, 256]
+    BASE_SIZES = [16, 32, 64, 128, 256, 512]
+>>>>>>> Stashed changes
     FEATURE_MAPS = [160, 80, 40, 20, 10, 5]
-    INPUT_SIZE = 640
+    INPUT_SIZE = [640, 640]
     STEPS = [4, 8, 16, 32, 64, 128]
+<<<<<<< Updated upstream
     ASPECT_RATIO = [[1.0,1.0],[2, 1/2],[3, 1/3],[1.0,1.0],[2, 1/2],[3, 1/3]]  # [[2, 1/2], [3, 1/3],...]的形式
+=======
+    ASPECT_RATIO = [1.0]  # [1.0, 2.0,...]的形式
+>>>>>>> Stashed changes
     CLIP = False
     VARIANCE = [0.1, 0.1, 0.2, 0.2]
     # 数据增广参数
@@ -60,12 +69,21 @@ class Config(object):
     # Final confidence threshold
     THRESHOLD = 0.4
     # 训练参数
+<<<<<<< Updated upstream
     EPOCHES = 1
     BATCH_SIZE = 11
     NUM_WORKERS = 4
     # 模型保存目录
     MODEL_DIR = './trained_weights'
     RESUME = './trained_weights/val_best_dsfd.pth'
+=======
+    EPOCHES = 3
+    BATCH_SIZE = 4
+    NUM_WORKERS = 4
+    # 模型保存目录
+    MODEL_DIR = './trained_weights'
+    RESUME = './trained_weights/val_best_vgg.pth'
+>>>>>>> Stashed changes
     # 需要预测的图片数据地址
     IMG_PATH = './data/img'
     # 预测结果保存目录
@@ -73,6 +91,10 @@ class Config(object):
     
     # 精调的日志目录
     EXCEL_PATH = './tmp_for_adjust/{}.xlsx'
+<<<<<<< Updated upstream
     KEY_NAME = 'loc.0.weight'  # 需要查看训练参数信息的层key值（直接在这里修改）
+=======
+    KEY_NAME = 'loc_pal1.0.weight'  # 需要查看训练参数信息的层key值（直接在这里修改）
+>>>>>>> Stashed changes
 
 cur_config = Config()

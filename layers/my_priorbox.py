@@ -6,17 +6,18 @@
    date：          2019/05/31
 """
 import torch
-from itertools import product
-from math import sqrt
+from itertools import product as product
+import math
 
 
 class PriorBox(object):
-    def __init__(self, cfg):
-        """
-        PriorBox需要返回得是所有default box得四个参数归一化后的值，即得到所有先验框的位置。
-        :param cfg: 
-        """
+    """Compute priorbox coordinates in center-offset form for each source
+    feature map.
+    """
+
+    def __init__(self, input_size, feature_maps, cfg):
         super(PriorBox, self).__init__()
+<<<<<<< Updated upstream
         self.image_size = cfg.MIN_DIM  # 如[300, 300]尺寸
         self.variance = cfg.VARIANCE or [0.1]  # 如[0.1, 0.1, 0.2, 0.2]形式，用来放大梯度
         self.feature_maps = cfg.FEATURE_MAPS  # [[H,W],[H,W],...]的形式
@@ -27,11 +28,26 @@ class PriorBox(object):
         self.clip = cfg.CLIP  # 归一化坐标超出边界范围的修剪
         # self.num_priors = len(cfg['aspect_ratios'])  #
         # self.version = cfg['name']
+=======
+        self.imh = input_size[0]
+        self.imw = input_size[1]
+
+        # number of priors for feature map location (either 4 or 6)
+        self.variance = cfg.VARIANCE
+        #self.feature_maps = cfg.FEATURE_MAPS
+        self.min_sizes = cfg.BASE_SIZES
+        self.aspect_ratio = cfg.ASPECT_RATIO
+        self.steps = cfg.STEPS
+        self.clip = cfg.CLIP
+>>>>>>> Stashed changes
         for v in self.variance:
             if v <= 0:
                 raise ValueError('Variances must be greater than 0')
+        self.feature_maps = feature_maps
+
 
     def forward(self):
+<<<<<<< Updated upstream
         """
         min_size和max_size会分别生成一个正方形的框，aspect_ratio参数对会生成2个长方形的框
         :return: 
@@ -61,9 +77,26 @@ class PriorBox(object):
                         mean += [cy, cx, s_k_prime_j * sqrt(ar), s_k_prime_i / sqrt(ar)]
                         mean += [cy, cx, s_k_j * sqrt(ar), s_k_i / sqrt(ar)]
         # 输出
+=======
+        mean = []
+        for k in range(len(self.feature_maps)):
+            feath = self.feature_maps[k][0]
+            featw = self.feature_maps[k][1]
+            for i, j in product(range(feath), range(featw)):
+                f_kw = self.imw / self.steps[k]
+                f_kh = self.imh / self.steps[k]
+
+                cx = (j + 0.5) / f_kw
+                cy = (i + 0.5) / f_kh
+
+                s_kw = self.min_sizes[k] / self.imw
+                s_kh = self.min_sizes[k] / self.imh
+                for ar in self.aspect_ratio:
+                    mean += [cy, cx, s_kh/math.sqrt(ar), s_kw*math.sqrt(ar)]
+
+>>>>>>> Stashed changes
         output = torch.Tensor(mean).view(-1, 4)
         if self.clip:
-            # 归一化，将output限制在[0, 1]之间
-            output = torch.clamp(output, min=0, max=1)
+            output.clamp_(max=1, min=0)
 
         return output
