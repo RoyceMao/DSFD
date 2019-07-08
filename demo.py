@@ -51,6 +51,7 @@ def detect(net, img_path, thresh):
     # 前向传播做预测
     t1 = time.time()
     y = net(x)
+
     detections = y.data  # shape为(batch, self.num_classes, self.top_k, 5)
     scale = torch.Tensor([img.shape[0], img.shape[1],
                           img.shape[0], img.shape[1]])  # 顺序为(y1,x1,y2,x2)
@@ -98,8 +99,11 @@ def main():
     print("====开始预测=====")
     img_list = [os.path.join(cfg.IMG_PATH, x)
                 for x in os.listdir(cfg.IMG_PATH) if x.endswith('jpg')]
-    for path in img_list:
-        detect(net, path, cfg.THRESHOLD)
+    
+    # 全局设置不进行梯度更新，避免爆GPU显存
+    with torch.no_grad():
+        for path in img_list:
+            detect(net, path, cfg.THRESHOLD)
 
 
 if __name__ == '__main__':
