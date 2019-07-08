@@ -84,11 +84,13 @@ class WIDERFace(Dataset):
                     # target = np.hstack((sample_box_label[:, 1:], sample_box_label[:, 0][:, np.newaxis]))
                     assert (target[:, 2] > target[:, 0]).any()
                     assert (target[:, 3] > target[:, 1]).any()
+                    assert not np.any(np.isnan(target))
+                    assert not np.any(np.isnan(img))
                     break  # 只有提取到有人头目标的图片（img，target）时，才加载当作训练样本。否则，一直随机加载
                 else:
                     index = random.randrange(0, self.num_samples)
             except Exception as e:
-                # traceback.print_exc()
+                traceback.print_exc()
                 index = random.randrange(0, self.num_samples)
                 continue
 

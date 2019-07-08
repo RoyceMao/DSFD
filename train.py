@@ -79,8 +79,8 @@ def train(args):
         # net.apply(net.weights_init)
 
     # 优化器对象、学习率衰减对象、损失函数对象
-    optimizer = optim.SGD(net.parameters(), lr=0.0001, momentum=0.9, weight_decay=1e-5)
-    scheduler = StepLR(optimizer, step_size=500, gamma=0.7)
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5)
+    scheduler = StepLR(optimizer, step_size=500, gamma=0.5)
     criterion = GeneralLoss(cfg)
 
     # 训练
@@ -133,6 +133,7 @@ def train(args):
                 # 保存权重、偏置、特征信息
                 # wb_parm = weights_bias_parm(net)
                 # parm_to_excel(cfg.EXCEL_PATH.format(cfg.KEY_NAME), cfg.KEY_NAME, wb_parm)
+                # val(epoch, net, criterion, val_loader)
 
         # 每个epoch打印一次metrics
         metric_print(metrics_list)
@@ -168,7 +169,7 @@ def val(epoch, net, criterion, val_loader):
                    for ann in targets]
         # 模型前向传播进行预测，并计算val_loss（注：这里的val_loss并不做反向传播，也不需要optimizer的更新）
         out = net(images)
-        loss_val, loss_loc_s1_val, loss_cls_s1_val, loss_loc_s2_val, loss_cls_s2_val = criterion(out, targets)
+        loss_val = criterion(out, targets) # , loss_loc_s1_val, loss_cls_s1_val, loss_loc_s2_val, loss_cls_s2_val
         losses_total_val += loss_val.data[0]
         step += 1
     # 每次评估只打印一次日志
