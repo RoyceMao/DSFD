@@ -89,8 +89,9 @@ class WIDERFace(Dataset):
                     break  # 只有提取到有人头目标的图片（img，target）时，才加载当作训练样本。否则，一直随机加载
                 else:
                     index = random.randrange(0, self.num_samples)
+                    continue
             except Exception as e:
-                traceback.print_exc()
+                # traceback.print_exc()
                 index = random.randrange(0, self.num_samples)
                 continue
 
