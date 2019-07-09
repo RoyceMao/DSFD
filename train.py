@@ -80,13 +80,15 @@ def train(args):
 
     # 优化器对象、学习率衰减对象、损失函数对象
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5)
-    scheduler = StepLR(optimizer, step_size=500, gamma=0.5)
+    # scheduler = StepLR(optimizer, step_size=500, gamma=0.5)
     criterion = GeneralLoss(cfg)
 
     # 训练
     print("======开始训练======")
 
     net.train()
+    stop_save = 0
+    global min_loss
     for epoch in range(start_epoch, cfg.EPOCHES):
         losses = 0
         metrics_list = []  # 打印前向传播待统计的logs
@@ -94,7 +96,7 @@ def train(args):
         for iteration, data in enumerate(train_loader):
             # images与targets放GPU上
             images, targets = data 
-            # print(images.numpy())  # 每个batch里，每张img的像素值都一样？？？
+            # print(images.numpy())
             images = Variable(images.cuda())
             targets = [Variable(ann.cuda(), volatile=True)
                        for ann in targets]
@@ -110,8 +112,10 @@ def train(args):
             # loss反向传播
             loss = criterion(out, targets)
             loss.backward()
+
+            torch.nn.utils.clip_grad_norm(net.parameters(), True)  # 梯度裁剪
             optimizer.step()
-            scheduler.step()
+            # scheduler.step()
 
             # 新增metrics输出
             # metrics_list.append(out["metrics"])
@@ -121,6 +125,7 @@ def train(args):
             losses += loss.data.item()  # 注：不能直接losses += loss，会随着epoches循环爆gpu的显存
 
             # 每训练10个batches后打印日志
+            ## loss开始变得不正常时，保存模型
             if iteration % 10 == 0:
                 # 计算每个batch的平均loss
                 mean_loss = losses / (iteration + 1)
@@ -130,9 +135,17 @@ def train(args):
                 # print('->> cls loss:s1_{:.4f},s2_{:.4f} || loc loss:s1_{:.4f},s2_{:.4f}'.format(
                       # loss_cls_s1.data[0], loss_cls_s2.data[0], loss_loc_s1.data[0], loss_loc_s2.data[0]))
                 print('->>lr:{}'.format(optimizer.param_groups[0]['lr']))
-                # 保存权重、偏置、特征信息
-                # wb_parm = weights_bias_parm(net)
-                # parm_to_excel(cfg.EXCEL_PATH.format(cfg.KEY_NAME), cfg.KEY_NAME, wb_parm)
+                if mean_loss < min_loss:
+                    min_loss = mean_loss
+                    print("min_loss:{}".format(min_loss))
+                    torch.save(net.state_dict(), save_path.format(11111))  # 出现nan之前的最优loss的model标签，并保存(只保存1个)
+                
+                # 权重、偏置、特征信息
+                # wb_parm, names = weights_bias_parm(net)
+                # for key in names:
+                    # if np.any(np.isnan(wb_parm[key].cpu().detach().numpy())):  # 某weights层的参数出现NAN
+                        # print(key)
+                    # parm_to_excel(cfg.EXCEL_PATH.format(key), key, wb_parm)
                 # val(epoch, net, criterion, val_loader)
 
         # 每个epoch打印一次metrics
@@ -227,5 +240,5 @@ if __name__ == '__main__':
 
     argments = parser.parse_args(sys.argv[1:])  # 新增的resume参数，指定net需要加载的权重参数
     # 用来每个epoch走完之后，val_loss的比较以保存最佳model
-    min_loss = np.inf
+    min_loss = 15
     train(argments)
