@@ -20,10 +20,11 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from config import cur_config as cfg
-from layers.my_loss import GeneralLoss
+from layers.my_loss import GeneralLoss, FocalLoss
 from models.my_dual_net import DualShot
 from models.dual_net_resnet import build_net_resnet
 from models.dual_net_vgg import build_net_vgg
+from models.dual_net_ssd import build_net_ssd
 from utils.my_data_loader import WIDERFace, face_collate
 from tmp_for_adjust.weights_bias_log import weights_bias_parm, parm_to_excel  # 打印weights、bias情况的脚本
 
@@ -59,7 +60,8 @@ def train(args):
     print("====初始化网络=====")
     # net = DualShot(phase, cfg, cfg.NUM_CLASSES)  # 源码重构网络
     # net = build_net_resnet(phase, cfg.NUM_CLASSES, 'resnet50')  # 源resnet网络
-    net = build_net_vgg(phase, cfg.NUM_CLASSES)  # 源vgg网络
+    # net = build_net_vgg(phase, cfg.NUM_CLASSES)  # 源vgg网络
+    net = build_net_ssd(phase, cfg, cfg.NUM_CLASSES) # 源腾讯优图类ssd网络
     # if args.multigpu:
     #     net = torch.nn.DataParallel(net)  # 训练过程中多GPU的使用
     net.cuda()
@@ -80,8 +82,9 @@ def train(args):
 
     # 优化器对象、学习率衰减对象、损失函数对象
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-5)
-    # scheduler = StepLR(optimizer, step_size=500, gamma=0.5)
-    criterion = GeneralLoss(cfg)
+    scheduler = StepLR(optimizer, step_size=10000, gamma=0.1)
+    # criterion = GeneralLoss(cfg)
+    criterion = FocalLoss(cfg)
 
     # 训练
     print("======开始训练======")
@@ -115,7 +118,6 @@ def train(args):
 
             torch.nn.utils.clip_grad_norm(net.parameters(), True)  # 梯度裁剪
             optimizer.step()
-            # scheduler.step()
 
             # 新增metrics输出
             # metrics_list.append(out["metrics"])
@@ -148,6 +150,7 @@ def train(args):
                     # parm_to_excel(cfg.EXCEL_PATH.format(key), key, wb_parm)
                 # val(epoch, net, criterion, val_loader)
 
+        scheduler.step()
         # 每个epoch打印一次metrics
         metric_print(metrics_list)
         # 每个epoch保存save一次模型的权重/偏置

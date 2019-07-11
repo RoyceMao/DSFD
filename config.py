@@ -48,23 +48,26 @@ class Config(object):
     saturation_delta = 0.5
     brightness_prob = 0.5
     brightness_delta = 0.125
-    # 采样参数
-    FACE_OVERLAP_THRESH = [0.35]
+    # Generalloss 挖掘采样参数
+    FACE_OVERLAP_THRESH = [0.35]  # 0.35
     NEG_POS_RATIOS = 3
+    # Focalloss 挖掘采样参数
+    ALPHA = 0.25
+    GAMMA = 2
     # Detection阈值
     NMS_THRESH = 0.3
     NMS_TOP_K = 5000
     TOP_K = 750
     CONF_THRESH = 0.05
     # Final confidence threshold
-    THRESHOLD = 0.4
+    THRESHOLD = 0.4  # 0.4
     # 训练参数
-    EPOCHES = 3
+    EPOCHES = 5
     BATCH_SIZE = 4
     NUM_WORKERS = 4
     # 模型保存目录
     MODEL_DIR = './trained_weights'
-    RESUME = './trained_weights/val_best_vgg.pth'
+    RESUME = './trained_weights/model.11111.pth'
     # 需要预测的图片数据地址
     IMG_PATH = './data/img'
     # 预测结果保存目录
