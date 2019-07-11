@@ -121,3 +121,97 @@ class GeneralLoss(nn.Module):
             loss = loss_loc + loss_cls
 
         return loss  # , loss_loc_s1, loss_cls_s1, loss_loc_s2, loss_cls_s2
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, cfg):
+        """
+            focusing is parameter that can adjust the rate at which easy
+            examples are down-weighted.
+            alpha may be set by inverse class frequency or treated as a hyper-param
+            If you don't want to balance factor, set alpha to 1
+            If you don't want to focusing factor, set gamma to 1 
+            which is same as normal cross entropy loss
+        """
+        super(FocalLoss, self).__init__()
+        self.num_classes = cfg.NUM_CLASSES
+        self.threshold = cfg.FACE_OVERLAP_THRESH
+        self.variance = cfg.VARIANCE
+        self.alpha = cfg.ALPHA
+        self.gamma = cfg.GAMMA
+
+
+    def loss_compute(self, predictions, targets):
+        """
+        更换loss函数为focalloss
+        :param predictions: 
+        :param targets: 
+        :return: 
+        """
+        loc_preds, cls_preds, priorbox = predictions
+        priors = priorbox[:loc_preds.size(1), :]
+        priors = Variable(priors.cuda())
+        batch = cls_preds.size(0)
+        num_priors = priors.size(0)
+
+        loc_batch = torch.Tensor(batch, num_priors, 4)
+        cls_batch = torch.Tensor(batch, num_priors)
+
+        for idx in range(batch):
+            # 真实值
+            gts = targets[idx][:, :-1][:, [1, 0, 3, 2]].data  # (x1,y1,x2,y2)转(y1,x1,y2,x2)
+            labels = targets[idx][:, -1].data  # .data
+            defaults = priors.data
+            # 真实值结合predictions中的priorbox计算target
+            batch_labels, batch_deltas, metrics = target(self.threshold, gts, defaults, self.variance, labels)
+
+            # 一个单独batch的分类、回归目标赋值
+            loc_batch[idx] = batch_deltas  # [batch_size, 34125, 4]
+            cls_batch[idx] = batch_labels  # [batch_size, 34125]
+
+        # 两个目标均设置为gpu上的Variable对象
+        loc_batch = Variable(loc_batch.cuda(), requires_grad=False)
+        cls_batch = Variable(cls_batch.cuda(), requires_grad=False)
+
+        # Smooth L1 loss（只取正样本做回归）
+        pos = cls_batch > 0
+        num_pos = pos.long().sum(1, keepdim=True)
+        pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_preds)
+        predict_deltas = loc_preds[pos_idx].view(-1, 4)
+        deltas = loc_batch[pos_idx].view(-1, 4)
+        # print(deltas)
+        loss_loc = F.smooth_l1_loss(predict_deltas, deltas,
+                                    size_average=False)  # size_average=False不取minibatch的loss平均，增大梯度
+
+        # focal loss（取正、负样本做分类）
+        pos_neg_cls = cls_batch > -1
+        mask = pos_neg_cls.unsqueeze(2).expand_as(cls_preds)
+        cls_preds_pure = cls_preds[mask].view(-1, cls_preds.size(2)).clone()
+        p_t_log = - F.cross_entropy(cls_preds_pure, cls_batch[pos_neg_cls], size_average=False)
+        p_t = torch.exp(p_t_log)
+        # focal loss的计算
+        loss_cls = -self.alpha * ((1 - p_t) ** self.gamma * p_t_log)
+
+        N = max(1,
+                num_pos.data.sum())
+        loss_loc = loss_loc / N.float()
+        loss_cls = loss_cls / N.float()
+
+        return loss_loc, loss_cls
+
+    def forward(self, predictions, targets):
+        """
+        
+        :param predictions: 
+        :param targets: 
+        :return: 
+        """
+        if len(predictions) == 6:  # 源网络返回情况（Dual_shot）
+            loss_loc_s1, loss_cls_s1 = self.loss_compute(predictions[:3], targets)
+            loss_loc_s2, loss_cls_s2 = self.loss_compute(predictions[3:], targets)
+            loss = loss_loc_s1 + loss_cls_s1 + loss_loc_s2 + loss_cls_s2
+        else:  # 重构网络返回情况（Single_shot）
+            loss_loc, loss_cls = self.loss_compute(predictions, targets)
+            loss = loss_loc + loss_cls
+
+        return loss
