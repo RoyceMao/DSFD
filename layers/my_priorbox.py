@@ -47,8 +47,11 @@ class PriorBox(object):
 
                 s_kw = self.min_sizes[k] / self.imw
                 s_kh = self.min_sizes[k] / self.imh
+
+                # mean += [cy, cx, s_kh, s_kw]
+
                 for ar in self.aspect_ratio:
-                    mean += [cy, cx, s_kh/math.sqrt(ar), s_kw*math.sqrt(ar)]
+                    mean += [cy, cx, s_kh*math.sqrt(ar), s_kw/math.sqrt(ar)]
 
         output = torch.Tensor(mean).view(-1, 4)
         if self.clip:

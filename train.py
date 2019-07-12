@@ -15,6 +15,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR  # 学习率衰减
+from tensorboardX import SummaryWriter
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
@@ -75,7 +76,11 @@ def train(args):
     if args.mode == 'resume':
         print('[INFO] Load model from {}...'.format(args.resume))
         # torch_utils.load_net(args.resume, net)
-        net.load_weights(args.resume)
+        try:
+            net.load_weights(args.resume)
+        except Exception as e:
+            net.load_state_dict(torch.load(args.resume))
+
     else:
         print('[INFO] Initializing weights...')
         # net.apply(net.weights_init)
@@ -85,6 +90,9 @@ def train(args):
     scheduler = StepLR(optimizer, step_size=10000, gamma=0.1)
     # criterion = GeneralLoss(cfg)
     criterion = FocalLoss(cfg)
+
+    # 存放训练log的writer对象
+    writer = SummaryWriter('./log')
 
     # 训练
     print("======开始训练======")
@@ -116,7 +124,8 @@ def train(args):
             loss = criterion(out, targets)
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm(net.parameters(), True)  # 梯度裁剪
+            # 梯度裁剪
+            torch.nn.utils.clip_grad_norm(net.parameters(), True)
             optimizer.step()
 
             # 新增metrics输出
@@ -127,20 +136,24 @@ def train(args):
             losses += loss.data.item()  # 注：不能直接losses += loss，会随着epoches循环爆gpu的显存
 
             # 每训练10个batches后打印日志
-            ## loss开始变得不正常时，保存模型
             if iteration % 10 == 0:
                 # 计算每个batch的平均loss
                 mean_loss = losses / (iteration + 1)
+
+                # 添加loss日志（用于tensorboard可视化）
+                writer.add_scalar('Loss', mean_loss, global_step=iteration)
+
                 print('Timer: %.4f' % (time.time() - start_time))
                 print('Epoch:' + repr(epoch) + ' || iter:' +
                       repr(iteration) + ' || Loss:%.4f' % (mean_loss))
                 # print('->> cls loss:s1_{:.4f},s2_{:.4f} || loc loss:s1_{:.4f},s2_{:.4f}'.format(
                       # loss_cls_s1.data[0], loss_cls_s2.data[0], loss_loc_s1.data[0], loss_loc_s2.data[0]))
                 print('->>lr:{}'.format(optimizer.param_groups[0]['lr']))
+                # 保存出现nan之前的最优loss权重，并保存(只保存1个)
                 if mean_loss < min_loss:
                     min_loss = mean_loss
                     print("min_loss:{}".format(min_loss))
-                    torch.save(net.state_dict(), save_path.format(11111))  # 出现nan之前的最优loss的model标签，并保存(只保存1个)
+                    torch.save(net.state_dict(), save_path.format(11111))
                 
                 # 权重、偏置、特征信息
                 # wb_parm, names = weights_bias_parm(net)
@@ -243,5 +256,5 @@ if __name__ == '__main__':
 
     argments = parser.parse_args(sys.argv[1:])  # 新增的resume参数，指定net需要加载的权重参数
     # 用来每个epoch走完之后，val_loss的比较以保存最佳model
-    min_loss = 15
+    min_loss = 10
     train(argments)

@@ -15,8 +15,7 @@ class Config(object):
     VAL_ROOT = '/home/dataset/face_recognize/face_detect/WIDER_val/images'
     FACE_GEN_TRAIN_FILE = './data/train.txt'
     FACE_GEN_VAL_FILE = './data/val.txt'
-    # 类别数与loss合并参数
-    ALPHA = 1.0
+    # 类别数
     NUM_CLASSES = 2
     # prior_box参数
     MBOX = [1, 1, 1, 1, 1, 1]
@@ -26,7 +25,7 @@ class Config(object):
     INPUT_SIZE = [640, 640]
     STEPS = [4, 8, 16, 32, 64, 128]
     ASPECT_RATIO = [1.0]  # [1.0, 2.0,...]的形式
-    CLIP = False
+    CLIP = True
     VARIANCE = [0.1, 0.1, 0.2, 0.2]
     # 数据增广参数
     APPLY_DISTORT = True
@@ -49,25 +48,25 @@ class Config(object):
     brightness_prob = 0.5
     brightness_delta = 0.125
     # Generalloss 挖掘采样参数
-    FACE_OVERLAP_THRESH = [0.35]  # 0.35
+    FACE_OVERLAP_THRESH = [0.4]  # 0.35
     NEG_POS_RATIOS = 3
     # Focalloss 挖掘采样参数
     ALPHA = 0.25
     GAMMA = 2
     # Detection阈值
-    NMS_THRESH = 0.3
+    NMS_THRESH = 0.1  # 0.3
     NMS_TOP_K = 5000
     TOP_K = 750
     CONF_THRESH = 0.05
     # Final confidence threshold
-    THRESHOLD = 0.4  # 0.4
+    THRESHOLD = 0.55  # 0.4
     # 训练参数
-    EPOCHES = 5
-    BATCH_SIZE = 4
+    EPOCHES = 2
+    BATCH_SIZE = 2
     NUM_WORKERS = 4
     # 模型保存目录
     MODEL_DIR = './trained_weights'
-    RESUME = './trained_weights/model.11111.pth'
+    RESUME = './trained_weights/focalloss_best_1.0_resnet_7.12.pth'
     # 需要预测的图片数据地址
     IMG_PATH = './data/img'
     # 预测结果保存目录

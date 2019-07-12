@@ -20,6 +20,7 @@ from config import cur_config as cfg
 from models.my_dual_net import DualShot
 from models.dual_net_resnet import build_net_resnet
 from models.dual_net_vgg import build_net_vgg
+from models.dual_net_ssd import build_net_ssd
 from utils.augmentation import to_chw_bgr  # channel first and RGB2GBR
 
 torch.cuda.set_device(1)
@@ -90,7 +91,8 @@ def main():
     print("====初始化网络=====")
     # net = DualShot('test', cfg, cfg.NUM_CLASSES)
     # net = build_net_resnet('test', cfg.NUM_CLASSES, 'resnet50')
-    net = build_net_vgg('test', cfg.NUM_CLASSES)
+    # net = build_net_vgg('test', cfg.NUM_CLASSES)
+    net = build_net_ssd('test', cfg, cfg.NUM_CLASSES)
     net.load_weights(cfg.RESUME)
     net.eval()
     net.cuda()
@@ -103,7 +105,10 @@ def main():
     # 全局设置不进行梯度更新，避免爆GPU显存
     with torch.no_grad():
         for path in img_list:
-            detect(net, path, cfg.THRESHOLD)
+            try:
+                detect(net, path, cfg.THRESHOLD)
+            except Exception as e:
+                continue
 
 
 if __name__ == '__main__':

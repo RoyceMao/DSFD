@@ -100,15 +100,6 @@ class SSD(nn.Module):
         self.smooth1 = nn.Conv2d(fpn_in[0], fpn_in[0], kernel_size=1, stride=1, padding=0)
 
         # =============
-        # 第二次特征点乘融合层
-        bup_in = output_channels
-        # self.bup1 = nn.Conv2d(bup_in[0], bup_in[1], kernel_size=3, stride=2, padding=1)
-        # self.bup2 = nn.Conv2d(bup_in[1], bup_in[2], kernel_size=3, stride=2, padding=1)
-        self.bup3 = nn.Conv2d(bup_in[2], bup_in[3], kernel_size=3, stride=2, padding=1)
-        self.bup4 = nn.Conv2d(bup_in[3], bup_in[4], kernel_size=3, stride=2, padding=1)
-        self.bup5 = nn.Conv2d(bup_in[4], bup_in[5], kernel_size=3, stride=2, padding=1)
-
-        # =============
         # 特征增强FEM层
         cpm_in = output_channels
         # self.cpm3_3 = nn.Conv2d(cpm_in[0], 512, kernel_size=1)
@@ -129,7 +120,7 @@ class SSD(nn.Module):
             self.softmax = nn.Softmax(dim=-1)
             self.detect = my_detection.Detection(cfg)
 
-    def init_priors(self, input_size, features_maps, cfg):
+    def init_priorbox(self, input_size, features_maps, cfg):
         priorbox = my_priorbox.PriorBox(input_size, features_maps, cfg)
         prior = Variable(priorbox.forward(), volatile=True)
         return prior
@@ -180,12 +171,6 @@ class SSD(nn.Module):
         conv4_3_x = lfpn2
         conv3_3_x = lfpn1
 
-        # conv4_3_x = F.relu(self.bup1(conv3_3_x))  * conv4_3_x
-        # conv5_3_x = F.relu(self.bup2(conv4_3_x))  * conv5_3_x
-        fc7_x = F.relu(self.bup3(conv5_3_x)) * fc7_x
-        conv6_2_x = F.relu(self.bup4(fc7_x)) * conv6_2_x
-        conv7_2_x = F.relu(self.bup5(conv6_2_x)) * conv7_2_x
-
         sources = [conv3_3_x, conv4_3_x, conv5_3_x, fc7_x, conv6_2_x, conv7_2_x]
 
         sources[0] = self.cpm3_3(sources[0])
@@ -200,10 +185,21 @@ class SSD(nn.Module):
         for (x, l, c) in zip(sources, self.loc, self.conf):
             featuremap_size.append([x.shape[2], x.shape[3]])
             loc.append(l(x).permute(0, 2, 3, 1).contiguous())
-            conf.append(c(x).permute(0, 2, 3, 1).contiguous())
+            len_conf = len(conf)
+            if self.cfg.MBOX[0] ==1 :
+                cls = self.mio_module(c(x),len_conf)
+            else:
+                mmbox = torch.chunk(c(x) , self.cfg.MBOX[0] , 1)
+                cls_0 = self.mio_module(mmbox[0], len_conf)
+                cls_1 = self.mio_module(mmbox[1], len_conf)
+                cls_2 = self.mio_module(mmbox[2], len_conf)
+                cls_3 = self.mio_module(mmbox[3], len_conf)
+                cls = torch.cat([cls_0, cls_1, cls_2, cls_3] , dim=1)
+            conf.append(cls.permute(0, 2, 3, 1).contiguous())
 
-        face_loc = torch.cat([o.view(o.size(0), -1) for o in loc], 1)
-        face_conf = torch.cat([o.view(o.size(0), -1) for o in conf], 1)
+        mbox_num = self.cfg.MBOX[0]
+        face_loc = torch.cat([o[:, :, :, :4 * mbox_num].contiguous().view(o.size(0), -1) for o in loc], 1)
+        face_conf = torch.cat([o[:, :, :, :2 * mbox_num].contiguous().view(o.size(0), -1) for o in conf], 1)
 
         if self.phase == "test":
             features_maps = featuremap_size  # 根据具体输入情况来修改cfg
@@ -237,6 +233,16 @@ class SSD(nn.Module):
         else:
             print('Sorry only .pth and .pkl files supported.')
 
+    def mio_module(self, each_mmbox, len_conf):
+        chunk = torch.chunk(each_mmbox, each_mmbox.shape[1], 1)
+        bmax = torch.max(torch.max(chunk[0], chunk[1]), chunk[2])
+        cls = (torch.cat([bmax, chunk[3]], dim=1) if len_conf == 0 else torch.cat([chunk[3], bmax], dim=1))
+        if len(chunk) == 6:
+            cls = torch.cat([cls, chunk[4], chunk[5]], dim=1)
+        elif len(chunk) == 8:
+            cls = torch.cat([cls, chunk[4], chunk[5], chunk[6], chunk[7]], dim=1)
+        return cls
+
     def _upsample_product(self, x, y):
         '''Upsample and add two feature maps.
         Args:
@@ -257,14 +263,38 @@ class SSD(nn.Module):
         return F.upsample(x, size=(H, W), mode='bilinear') * y
 
 
+class DeepHeadModule(nn.Module):
+    def __init__(self, input_channels, output_channels):
+        super(DeepHeadModule , self).__init__()
+        self._input_channels = input_channels
+        self._output_channels = output_channels
+        self._mid_channels = min(self._input_channels, 256)
+        #print(self._mid_channels)
+        self.conv1 = nn.Conv2d( self._input_channels, self._mid_channels, kernel_size=3, dilation=1, stride=1, padding=1)
+        self.conv2 = nn.Conv2d( self._mid_channels, self._mid_channels, kernel_size=3, dilation=1, stride=1, padding=1)
+        self.conv3 = nn.Conv2d( self._mid_channels, self._mid_channels, kernel_size=3, dilation=1, stride=1, padding=1)
+        self.conv4 = nn.Conv2d( self._mid_channels, self._output_channels, kernel_size=1, dilation=1, stride=1, padding=0)
+    def forward(self, x):
+        return self.conv4(F.relu(self.conv3(F.relu(self.conv2(F.relu(self.conv1(x), inplace=True)), inplace=True)), inplace=True))
+
+
 def multibox(output_channels, mbox_cfg, num_classes):
     loc_layers = []
     conf_layers = []
     for k, v in enumerate(output_channels):
         input_channels = 512
-        loc_layers += [nn.Conv2d(input_channels, mbox_cfg[k] * 4, kernel_size=3, padding=1)]
-        conf_layers += [nn.Conv2d(input_channels, mbox_cfg[k] * num_classes, kernel_size=3, padding=1)]
-    return loc_layers, conf_layers
+        if k == 0:
+            loc_output = 4
+            conf_output = 2
+        elif k == 1:
+            loc_output = 8
+            conf_output = 4
+        else:
+            loc_output = 12
+            conf_output = 6
+        loc_layers += [DeepHeadModule(input_channels, mbox_cfg[k] * loc_output)]
+        conf_layers += [DeepHeadModule(input_channels, mbox_cfg[k] * (2 + conf_output))]
+    return (loc_layers, conf_layers)
 
 
 def build_net_ssd(phase, cfg, num_classes=2):
