@@ -6,7 +6,7 @@
    date：          2019/06/13
 """
 import os
-import sys  
+import sys
 sys.path.append("../")
 
 from config import cur_config as cfg
@@ -24,18 +24,33 @@ def parse_face_file(root, file):
     face_loc_flatten = []
     with open(file, 'r') as f:
         lines = f.readlines()
+    count = 0
+    flag = False
     for i, line in enumerate(lines):
         line = line.strip().strip('\n')
-        # 人头图像
+        # # 人头图像
+        # if 'jpg' in line:
+        #     face_path += [os.path.join(root, line)]
+        # # 人头计数
+        # elif len(line.split(' ')) == 1:
+        #     face_count += [int(line)]
+        # # 所有人头位置坐标
+        # else:
+        #     line = line.split(' ')
+        #     face_loc_flatten += [[int(line[0]), int(line[1]), int(line[2]), int(line[3])]]
+        if count > 0:
+            line = line.split(' ')
+            count -= 1
+            loc = [int(line[0]), int(line[1]), int(line[2]), int(line[3])]
+            face_loc_flatten += [loc]
+        if flag:
+            face_count += [int(line)]
+            flag = False
+            count = int(line)
         if 'jpg' in line:
             face_path += [os.path.join(root, line)]
-        # 人头计数
-        elif len(line.split(' ')) == 1:
-            face_count += [int(line)]
-        # 所有人头位置坐标
-        else:
-            line = line.split(' ')
-            face_loc_flatten += [[int(line[0]), int(line[1]), int(line[2]), int(line[3])]]
+            flag = True
+
     # flatten后的face_loc根据图片做对应
     total_face_num = 0
     for face_num in face_count:
@@ -86,4 +101,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

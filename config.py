@@ -13,6 +13,8 @@ class Config(object):
     # 相关路径
     TRAIN_ROOT = '/home/dataset/face_recognize/face_detect/WIDER_train/images'
     VAL_ROOT = '/home/dataset/face_recognize/face_detect/WIDER_val/images'
+    FACE_TRAIN_FILE = '/home/dataset/face_recognize/face_detect/wider_face_split/wider_face_train_bbx_gt.txt'
+    FACE_VAL_FILE = '/home/dataset/face_recognize/face_detect/wider_face_split/wider_face_val_bbx_gt.txt'
     FACE_GEN_TRAIN_FILE = './data/train.txt'
     FACE_GEN_VAL_FILE = './data/val.txt'
     # 类别数
@@ -61,12 +63,12 @@ class Config(object):
     # Final confidence threshold
     THRESHOLD = 0.55  # 0.4
     # 训练参数
-    EPOCHES = 2
+    EPOCHES = 10
     BATCH_SIZE = 2
     NUM_WORKERS = 4
     # 模型保存目录
     MODEL_DIR = './trained_weights'
-    RESUME = './trained_weights/focalloss_best_1.0_resnet_7.12.pth'
+    RESUME = './trained_weights/model.000.pth'
     # 需要预测的图片数据地址
     IMG_PATH = './data/img'
     # 预测结果保存目录

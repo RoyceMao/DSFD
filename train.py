@@ -59,7 +59,7 @@ def train(args):
 
     # 初始化网络
     print("====初始化网络=====")
-    # net = DualShot(phase, cfg, cfg.NUM_CLASSES)  # 源码重构网络
+    net = DualShot(phase, cfg, cfg.NUM_CLASSES)  # 源码重构网络
     # net = build_net_resnet(phase, cfg.NUM_CLASSES, 'resnet50')  # 源resnet网络
     # net = build_net_vgg(phase, cfg.NUM_CLASSES)  # 源vgg网络
     net = build_net_ssd(phase, cfg, cfg.NUM_CLASSES) # 源腾讯优图类ssd网络
@@ -172,7 +172,7 @@ def train(args):
             torch.save(net.state_dict(), save_path.format(epoch))
 
         # 每个epoch评估测试一次（并保存最佳的权重/偏置参数信息）
-        val(epoch, net, criterion, val_loader)
+        # val(epoch, net, criterion, val_loader)
 
     print('[INFO] Finished Training')
 
@@ -199,7 +199,7 @@ def val(epoch, net, criterion, val_loader):
         # 模型前向传播进行预测，并计算val_loss（注：这里的val_loss并不做反向传播，也不需要optimizer的更新）
         out = net(images)
         loss_val = criterion(out, targets) # , loss_loc_s1_val, loss_cls_s1_val, loss_loc_s2_val, loss_cls_s2_val
-        losses_total_val += loss_val.data[0]
+        losses_total_val += loss_val.data.item()
         step += 1
     # 每次评估只打印一次日志
     mean_loss_val = losses_total_val / step

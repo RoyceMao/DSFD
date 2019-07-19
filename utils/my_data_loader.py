@@ -9,8 +9,12 @@ import torch
 import random
 import traceback
 import numpy as np
+import skimage
+import math
 from PIL import Image
+from skimage import io
 from torch.utils.data import Dataset
+from utils.augment import Augmentation
 from utils.augmentation import data_aug
 from utils.my_np_utils import clip_boxes
 
@@ -26,6 +30,7 @@ class WIDERFace(Dataset):
         self.fnames = []
         self.gts = []
         self.labels = []
+        self.to_aug = Augmentation(640)
         # 按行读取，.split()之后保留的是[path, face_num, face_loc]的顺序
         with open(gen_file) as f:
             lines = f.readlines()
@@ -61,23 +66,38 @@ class WIDERFace(Dataset):
         while True:
             # 读取指定index的img
             image_path = self.fnames[index]
+            # img = io.imread(image_path)
+            # if img.ndim != 3:
+                # img = skimage.color.gray2rgb(img)
+            # img_height, img_width, _ = img.shape
             img = Image.open(image_path)
             if img.mode == 'L':
                 img = img.convert('RGB')
             img_width, img_height = img.size
+            
             # 指定index的img的face_loc的坐标归一化处理
             gt_box = np.array(self.gts[index])
-            gt_box[:, 0] = gt_box[:, 0] / img_width
-            gt_box[:, 1] = gt_box[:, 1] / img_height
-            gt_box[:, 2] = gt_box[:, 2] / img_width
-            gt_box[:, 3] = gt_box[:, 3] / img_height
+            gt_box[:, 0] = gt_box[:, 0]  / img_width
+            gt_box[:, 1] = gt_box[:, 1]  / img_height
+            gt_box[:, 2] = (gt_box[:, 2] + gt_box[:, 0])  / img_width
+            gt_box[:, 3] = (gt_box[:, 3] + gt_box[:, 1])  / img_height
             # 指定index的img的face_label提取
             gt_label = np.array(self.labels[index])
             # 拼接后转list [face_num, (cls,x1,y1,x2,y2)]
             gt_box_label = np.hstack((gt_label[:, np.newaxis], gt_box)).tolist()
-            # 直接做数据增广
+            # 做数据增广
             try:
                 img, sample_box_label = data_aug(img, gt_box_label, self.mode, image_path)
+
+                # img, boxes, labels = self.to_aug(img, gt_box, gt_label)
+                ## IMG 通道first
+                # if len(img.shape) == 3:
+                    # img = np.swapaxes(img, 1, 2)
+                    # img = np.swapaxes(img, 1, 0)
+                ## BOX 坐标归一化处理
+                # boxes = boxes / 640
+                # sample_box_label = np.hstack((labels[:, np.newaxis], boxes))
+
                 # 数据增广后的[face_num, (cls,x1,y1,x2,y2)]标签转[face_num, (x1,y1,x2,y2,cls)]
                 if len(sample_box_label) > 0:
                     target = clip_boxes(sample_box_label, 1)
@@ -86,12 +106,14 @@ class WIDERFace(Dataset):
                     assert (target[:, 3] > target[:, 1]).any()
                     assert not np.any(np.isnan(target))
                     assert not np.any(np.isnan(img))
+                    assert not np.any(np.isinf(target))
+                    assert not np.any(np.isinf(img))
                     break  # 只有提取到有人头目标的图片（img，target）时，才加载当作训练样本。否则，一直随机加载
                 else:
                     index = random.randrange(0, self.num_samples)
                     continue
             except Exception as e:
-                # traceback.print_exc()
+                traceback.print_exc()
                 index = random.randrange(0, self.num_samples)
                 continue
 

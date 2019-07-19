@@ -194,8 +194,8 @@ class FocalLoss(nn.Module):
 
         N = max(1,
                 num_pos.data.sum())
-        loss_loc = loss_loc / N.float()
-        loss_cls = loss_cls / N.float()
+        loss_loc = loss_loc / float(N)  # .float()
+        loss_cls = loss_cls / float(N)  # .float()
 
         return loss_loc, loss_cls
 
