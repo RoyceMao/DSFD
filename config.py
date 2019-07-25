@@ -68,9 +68,10 @@ class Config(object):
     NUM_WORKERS = 4
     # 模型保存目录
     MODEL_DIR = './trained_weights'
-    RESUME = './trained_weights/model.000.pth'
+    RESUME = './trained_weights/model.009.pth'
     # 需要预测的图片数据地址
     IMG_PATH = './data/img'
+    VIDEO_PATH = './data/video'
     # 预测结果保存目录
     RESULTS = './out'
     

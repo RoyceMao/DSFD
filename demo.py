@@ -1,9 +1,9 @@
-#-*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 """
    File Name：     demo.py
-   Description :   人脸检测预测Demo
+   Description :   人脸检测预测Demo（批量图片与批量视频）
    Author :        royce.mao
-   date：          2019/07/02
+   date：          2019/07/25
 """
 
 import os
@@ -25,13 +25,25 @@ from utils.augmentation import to_chw_bgr  # channel first and RGB2GBR
 
 torch.cuda.set_device(1)
 
+
 # 人脸检测的Demo函数
 def detect(net, img_path, thresh):
-    img = Image.open(img_path)
-    if img.mode == 'L':
-        img = img.convert('RGB')
+    """
+    
+    :param net: 
+    :param img_path: 
+    :param thresh: 
+    :return: 
+    """
+    # 如果输入是图片地址，不是视频帧，则需读取为np.ndarray
+    if type(img_path) is not np.ndarray:
+        img = Image.open(img_path)
+        if img.mode == 'L':
+            img = img.convert('RGB')
+        img = np.array(img)
+    else:
+        img = img_path
 
-    img = np.array(img)
     height, width, _ = img.shape
 
     # 按比例因子做缩放
@@ -58,7 +70,10 @@ def detect(net, img_path, thresh):
                           img.shape[0], img.shape[1]])  # 顺序为(y1,x1,y2,x2)
 
     # 用于显示save保存的原始图片
-    img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    if type(img_path) is not np.ndarray:
+        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    else:
+        img = img_path
 
     # 根据softmax归一化的结果，逐class判断
     for i in range(detections.size(1)):
@@ -75,19 +90,78 @@ def detect(net, img_path, thresh):
                 conf, cv2.FONT_HERSHEY_SIMPLEX, 0.3, 1)
             p1 = (left_up[0], left_up[1] - text_size[1])
             cv2.rectangle(img, (p1[0] - 2 // 2, p1[1] - 2 - baseline),
-                          (p1[0] + text_size[0], p1[1] + text_size[1]),[255,0,0], -1)
+                          (p1[0] + text_size[0], p1[1] + text_size[1]), [255, 0, 0], -1)
             cv2.putText(img, conf, (p1[0], p1[
-                            1] + baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1, 8)
+                1] + baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1, 8)
 
     t2 = time.time()
-    print('detect:{} timer:{}'.format(img_path, t2 - t1))
+    print('检测图片:{} 耗时:{}'.format(os.path.basename(img_path) if type(img_path) is not np.ndarray else '帧率', t2 - t1))
 
-    # 保存
-    cv2.imwrite(os.path.join(cfg.RESULTS, os.path.basename(img_path)), img)
+    return img
+
+
+def save_graph(net):
+    """
+    批量预测图片，并一张张保存
+    :param net: 
+    :return: 
+    """
+    img_list = [os.path.join(cfg.IMG_PATH, x)
+                for x in os.listdir(cfg.IMG_PATH) if x.endswith('jpg')]
+
+    # 全局设置不进行梯度更新，避免爆GPU显存
+    with torch.no_grad():
+        for path in img_list:
+            try:
+                img = detect(net, path, cfg.THRESHOLD)
+                cv2.imwrite(os.path.join(cfg.RESULTS, os.path.basename(path)), img)
+            except Exception as e:
+                continue
+
+
+def save_video(net):
+    """
+    批量预测视频帧，并保存为视频结果
+    :param net: 
+    :return: 
+    """
+    video_list = [os.path.join(cfg.VIDEO_PATH, x)
+                  for x in os.listdir(cfg.VIDEO_PATH) if x.endswith('mp4')]
+
+    # 全局设置不进行梯度更新，避免爆GPU显存
+    with torch.no_grad():
+        for path in video_list:
+            try:
+                # OpenCV的Writer对象
+                cap = cv2.VideoCapture(path)
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                        int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                writer = cv2.VideoWriter()
+                save_path = os.path.join(cfg.RESULTS, os.path.basename(path))
+                writer.open(save_path, fourcc, fps, size, True)
+                # 每个视频的逐帧检测人脸
+                while cap.isOpened():
+                    ok, frame = cap.read()
+                    # 该帧无detect输出，跳到下一帧
+                    if not ok:
+                        continue
+                    frame = detect(net, frame, cfg.THRESHOLD)
+                    writer.write(frame)
+
+                # release
+                writer.release()
+                cap.release()
+                cv2.destroyAllWindows()
+                print("[INFO] Done for " + str(os.path.basename(path)))
+
+            except Exception as e:
+                continue
 
 
 def main():
-    #
+    """主函数"""
     print("====初始化网络=====")
     # net = DualShot('test', cfg, cfg.NUM_CLASSES)
     # net = build_net_resnet('test', cfg.NUM_CLASSES, 'resnet50')
@@ -97,18 +171,10 @@ def main():
     net.eval()
     net.cuda()
     cudnn.benckmark = True
-    #
+    # 开始预测
     print("====开始预测=====")
-    img_list = [os.path.join(cfg.IMG_PATH, x)
-                for x in os.listdir(cfg.IMG_PATH) if x.endswith('jpg')]
-    
-    # 全局设置不进行梯度更新，避免爆GPU显存
-    with torch.no_grad():
-        for path in img_list:
-            try:
-                detect(net, path, cfg.THRESHOLD)
-            except Exception as e:
-                continue
+    # save_graph(net)
+    save_video(net)
 
 
 if __name__ == '__main__':
