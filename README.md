@@ -22,4 +22,5 @@ python ./utils/my_data_preprocess.py
 python train.py
 ```
 ## Result
-
+![](/out/training_log.png)   
+具体Inference效果可查看out目录，训练、评估、预测所有的参数情况都写入了[Config](/config.py)文件中，可根据自己情况修改。
